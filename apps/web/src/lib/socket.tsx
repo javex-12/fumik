@@ -91,7 +91,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const isProd = process.env.NODE_ENV === 'production';
     // Use 127.0.0.1 by default on local to avoid IPv6 localhost issues
     const defaultUrl = isProd 
-      ? 'https://fumik-production.up.railway.app' 
+      ? 'https://fumik-server.onrender.com' 
       : `http://127.0.0.1:8080`;
     
     initSocket(defaultUrl);
