@@ -81,13 +81,13 @@ export default function CommunicationSuite() {
   return (
     <>
       {isCallActive && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 flex flex-wrap justify-center gap-3 w-full px-4">
-          <div className="w-24 h-32 md:w-40 md:h-28 bg-slate-900 rounded-2xl overflow-hidden border-2 border-primary relative shadow-lg">
+        <div className="fixed top-6 right-6 z-50 flex flex-col items-end gap-3 pointer-events-none">
+          <div className="w-24 h-32 md:w-32 md:h-24 bg-slate-900 rounded-2xl overflow-hidden border-2 border-orange-500 relative shadow-lg pointer-events-auto">
             <video autoPlay muted playsInline ref={el => { if(el) el.srcObject = myStream.current; }} className={clsx("w-full h-full object-cover", !isVideoOn && "hidden")} />
             <div className="absolute bottom-2 left-2 text-[8px] font-bold text-white bg-black/40 px-2 py-0.5 rounded">You</div>
           </div>
           {Object.entries(streams).map(([id, stream]) => (
-            <div key={id} className="w-24 h-32 md:w-40 md:h-28 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 relative shadow-md">
+            <div key={id} className="w-24 h-32 md:w-32 md:h-24 bg-slate-100 rounded-2xl overflow-hidden border border-slate-200 relative shadow-md pointer-events-auto">
               <video autoPlay playsInline ref={el => { if(el) el.srcObject = stream; }} className="w-full h-full object-cover" />
               <div className="absolute bottom-2 left-2 text-[8px] font-bold text-white bg-black/40 px-2 py-0.5 rounded">
                 {room?.players.find(p => p.id === id)?.name || 'Guest'}
@@ -97,7 +97,7 @@ export default function CommunicationSuite() {
         </div>
       )}
 
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2 bg-white border border-slate-200 p-2 rounded-full shadow-xl shadow-slate-200/50">
+      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 bg-white/90 backdrop-blur-xl border border-white p-2 rounded-full shadow-2xl shadow-slate-200/50">
         {isCallActive ? (
           <>
             <button onClick={toggleMic} className={clsx("w-12 h-12 rounded-full flex items-center justify-center", isMicOn ? "bg-slate-50 text-slate-400" : "bg-red-50 text-red-500")}>
@@ -109,14 +109,14 @@ export default function CommunicationSuite() {
             <button onClick={endCall} className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center text-white"><Icons.PhoneOff className="w-5 h-5" /></button>
           </>
         ) : (
-          <button onClick={() => startCall(true)} className="flex items-center gap-2 bg-orange-50 text-primary px-6 py-3 rounded-full font-bold text-sm">
+          <button onClick={() => startCall(true)} className="flex items-center gap-2 bg-orange-50 text-orange-600 hover:bg-orange-100 px-6 py-3 rounded-full font-bold text-sm transition-colors">
             <Icons.Video className="w-4 h-4" /> Link Up
           </button>
         )}
         <div className="w-px h-6 bg-slate-100 mx-1" />
         <button onClick={() => setIsChatOpen(true)} className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 relative">
           <Icons.MessageSquare className="w-5 h-5" />
-          {messages.length > 0 && !isChatOpen && <div className="absolute top-0 right-0 w-3 h-3 bg-primary rounded-full border-2 border-white" />}
+          {messages.length > 0 && !isChatOpen && <div className="absolute top-0 right-0 w-3 h-3 bg-orange-500 rounded-full border-2 border-white animate-pulse" />}
         </button>
       </div>
 

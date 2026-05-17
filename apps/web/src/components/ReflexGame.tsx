@@ -78,23 +78,23 @@ export default function ReflexGame() {
     socket?.emit('reflex:tap', { code: room?.code });
   };
 
-  if (!isMounted) return <div className="h-screen bg-background" />;
+  if (!isMounted) return <div className="h-screen bg-slate-50" />;
 
   if (status === 'starting') {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-background p-12 overflow-hidden">
-        <div className="bg-glow top-[-100px] left-[-100px] bg-indigo-500 opacity-20" />
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-12 overflow-hidden relative">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-200/50 rounded-full blur-[120px]" />
         <motion.div 
           initial={{ scale: 0, rotate: -20 }}
           animate={{ scale: 1, rotate: 0 }}
           className="relative"
         >
-          <div className="absolute inset-0 bg-indigo-500 blur-[80px] opacity-20 rounded-full" />
-          <span className="text-[12rem] font-black italic text-white leading-none relative z-10">{countdown}</span>
+          <div className="absolute inset-0 bg-orange-500 blur-[80px] opacity-20 rounded-full" />
+          <span className="text-[12rem] font-black italic text-orange-500 leading-none relative z-10">{countdown}</span>
         </motion.div>
-        <div className="mt-12 space-y-4 text-center">
-            <h2 className="text-xl font-black text-white/40 uppercase tracking-[0.5em]">Syncing Reaction Matrix</h2>
-            <p className="text-indigo-400 font-mono text-xs uppercase tracking-widest font-bold">Prepare for High-Speed Engagement</p>
+        <div className="mt-12 space-y-4 text-center z-10">
+            <h2 className="text-xl font-black text-slate-400 uppercase tracking-[0.5em]">Syncing Game Logic</h2>
+            <p className="text-orange-500 font-mono text-xs uppercase tracking-widest font-bold">Get ready to react!</p>
         </div>
       </div>
     );
@@ -102,18 +102,19 @@ export default function ReflexGame() {
 
   if (status === 'gameover') {
     return (
-      <div className="h-screen flex flex-col items-center justify-center bg-background p-12 text-center relative overflow-hidden">
-        <div className="bg-glow bg-premium opacity-10 blur-[150px]" />
+      <div className="h-screen flex flex-col items-center justify-center bg-slate-50 p-12 text-center relative overflow-hidden">
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-orange-400/20 rounded-full blur-[150px] pointer-events-none" />
         <motion.div
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="premium-card p-16 max-w-2xl w-full border-premium/20"
+            className="bg-white/80 backdrop-blur-2xl p-16 max-w-2xl w-full border border-white rounded-[2rem] shadow-2xl shadow-orange-500/10 z-10"
         >
-            <Icons.Trophy className="w-24 h-24 text-premium mx-auto mb-10 shadow-[0_0_40px_rgba(245,158,11,0.3)]" />
-            <h2 className="text-6xl font-black text-white uppercase italic tracking-tighter mb-4">
-              {gameWinner} <br/> <span className="text-premium">VICTORIOUS</span>
+            <Icons.Trophy className="w-24 h-24 text-orange-500 mx-auto mb-10 drop-shadow-xl" />
+            <h2 className="text-6xl font-black text-slate-900 uppercase italic tracking-tighter mb-4">
+              {gameWinner} <br/> <span className="text-orange-500">WINS!</span>
             </h2>
-            <p className="text-white/30 font-mono text-xs uppercase tracking-[0.4em]">Arena Sequence Terminated</p>
+            <p className="text-slate-400 font-mono text-xs uppercase tracking-[0.4em]">Match concluded</p>
+            <button onClick={() => window.location.reload()} className="mt-8 bg-orange-500 hover:bg-orange-600 text-white px-8 py-4 rounded-xl font-bold uppercase tracking-widest shadow-lg shadow-orange-500/20 transition-all active:scale-95">Back to Lobby</button>
         </motion.div>
       </div>
     );
@@ -126,28 +127,27 @@ export default function ReflexGame() {
       animate={showPenalty ? { x: [-10, 10, -10, 10, 0] } : {}}
       className={clsx(
         "h-screen flex flex-col relative transition-all duration-75 overflow-hidden",
-        status === 'GO' ? "bg-white" : "bg-background"
+        status === 'GO' ? "bg-orange-50" : "bg-slate-50"
       )}
-      onClick={handleTap}
     >
-      <div className="bg-glow top-[-200px] left-[-100px] bg-indigo-500 opacity-10" />
+      <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-orange-200/40 rounded-full blur-[120px] pointer-events-none" />
       
       {/* HUD Header */}
-      <header className="p-10 flex justify-between items-center z-20 relative">
+      <header className="p-8 sm:p-10 flex justify-between items-center z-20 relative pointer-events-none">
         <div className="space-y-1">
-          <div className="font-mono text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">Combat Phase</div>
-          <div className="text-4xl font-black text-white italic">ROUND 0{round}</div>
+          <div className="font-mono text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Current Phase</div>
+          <div className="text-4xl font-black text-slate-900 italic">ROUND {round}</div>
         </div>
         
         <div className="flex flex-col items-end gap-3">
-          <div className="font-mono text-[10px] font-black text-white/30 uppercase tracking-[0.4em]">Structural Integrity</div>
-          <div className="flex gap-3">
+          <div className="font-mono text-[10px] font-black text-slate-400 uppercase tracking-[0.4em]">Lives Remaining</div>
+          <div className="flex gap-2 sm:gap-3">
             {[1, 2, 3].map((i) => (
               <div 
                 key={i} 
                 className={clsx(
-                  "w-14 h-4 rounded-md skew-x-[-25deg] transition-all duration-500",
-                  i <= myLives ? "bg-indigo-500 shadow-[0_0_25px_rgba(99,102,241,0.5)]" : "bg-white/5 border border-white/5"
+                  "w-10 sm:w-14 h-4 rounded-md skew-x-[-25deg] transition-all duration-500",
+                  i <= myLives ? "bg-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.4)]" : "bg-slate-200"
                 )} 
               />
             ))}
@@ -155,8 +155,11 @@ export default function ReflexGame() {
         </div>
       </header>
 
-      {/* Arena Center */}
-      <div className="flex-1 flex flex-col items-center justify-center relative">
+      {/* Arena Center - ONLY THIS AREA CLICKS */}
+      <div 
+        className="flex-1 flex flex-col items-center justify-center relative cursor-pointer"
+        onClick={handleTap}
+      >
         <AnimatePresence mode="wait">
           {status === 'waiting' && (
             <motion.div 
@@ -164,19 +167,19 @@ export default function ReflexGame() {
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 1.5, opacity: 0 }}
-              className="flex flex-col items-center gap-16"
+              className="flex flex-col items-center gap-12 sm:gap-16"
             >
-              <div className="relative">
-                <div className="absolute inset-[-60px] bg-indigo-500/10 blur-[100px] rounded-full animate-pulse" />
-                <div className="w-80 h-80 rounded-[4rem] bg-white/5 border border-white/10 flex items-center justify-center relative backdrop-blur-3xl">
-                   <Icons.Eye className="w-24 h-24 text-white/10 animate-pulse" />
-                   <div className="absolute inset-0 border-[2px] border-indigo-500/20 rounded-[4rem] animate-[ping_4s_infinite]" />
+              <div className="relative pointer-events-none">
+                <div className="absolute inset-[-60px] bg-orange-500/20 blur-[80px] rounded-full animate-pulse" />
+                <div className="w-64 h-64 sm:w-80 sm:h-80 rounded-[4rem] bg-white/50 border border-white flex items-center justify-center relative backdrop-blur-xl shadow-2xl shadow-orange-500/5">
+                   <Icons.Eye className="w-20 h-20 sm:w-24 sm:h-24 text-orange-400 animate-pulse" />
+                   <div className="absolute inset-0 border-[3px] border-orange-500/30 rounded-[4rem] animate-[ping_3s_infinite]" />
                 </div>
               </div>
               <div className="text-center space-y-4">
-                <h3 className="text-5xl font-black text-white uppercase tracking-tighter italic">WATCH THE LINK</h3>
+                <h3 className="text-4xl sm:text-5xl font-black text-slate-900 uppercase tracking-tighter italic">WAIT FOR IT...</h3>
                 <div className="flex justify-center gap-2">
-                   {[1,2,3].map(i => <div key={i} className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-bounce" style={{ animationDelay: `${i*0.2}s` }} />)}
+                   {[1,2,3].map(i => <div key={i} className="w-2 h-2 bg-orange-500 rounded-full animate-bounce" style={{ animationDelay: `${i*0.2}s` }} />)}
                 </div>
               </div>
             </motion.div>
@@ -187,10 +190,10 @@ export default function ReflexGame() {
               key="GO"
               initial={{ scale: 0.5, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="text-center z-30"
+              className="text-center z-30 pointer-events-none"
             >
-              <div className="text-[18rem] font-black text-black italic tracking-tighter leading-none select-none drop-shadow-2xl">
-                HIT!
+              <div className="text-[12rem] sm:text-[18rem] font-black text-orange-600 italic tracking-tighter leading-none select-none drop-shadow-2xl">
+                TAP!
               </div>
             </motion.div>
           )}
@@ -200,25 +203,24 @@ export default function ReflexGame() {
               key="result"
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              className="w-full max-w-xl px-10"
+              className="w-full max-w-xl px-6 sm:px-10 pointer-events-none"
             >
-              <div className="premium-card p-12 relative overflow-hidden text-center">
-                <div className="animate-shimmer opacity-10" />
-                <div className="space-y-8 relative z-10">
-                  <div className="font-mono text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em]">Data Collected</div>
-                  <div className="space-y-3">
-                    <div className="text-6xl font-black text-white italic tracking-tighter">{winner ? winner : "LINK FAILURE"}</div>
-                    <div className="text-white/30 font-mono text-xs uppercase tracking-[0.4em] font-bold">{winner ? "OPTIMAL PERFORMANCE" : "ALL UNITS DEPRECATED"}</div>
+              <div className="bg-white/90 backdrop-blur-2xl border border-white p-8 sm:p-12 relative overflow-hidden text-center rounded-[2rem] shadow-2xl shadow-slate-200/50">
+                <div className="space-y-6 sm:space-y-8 relative z-10">
+                  <div className="font-mono text-[10px] font-black text-orange-500 uppercase tracking-[0.5em]">Round Result</div>
+                  <div className="space-y-2 sm:space-y-3">
+                    <div className="text-4xl sm:text-6xl font-black text-slate-900 italic tracking-tighter">{winner ? winner : "TOO SLOW"}</div>
+                    <div className="text-slate-400 font-mono text-[10px] sm:text-xs uppercase tracking-[0.4em] font-bold">{winner ? "WON THE ROUND" : "EVERYONE LOSES LIVES"}</div>
                   </div>
-                  <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
+                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                     <motion.div 
                       initial={{ width: 0 }}
                       animate={{ width: '100%' }}
                       transition={{ duration: 3, ease: "linear" }}
-                      className="h-full bg-indigo-500 shadow-[0_0_20px_#6366f1]"
+                      className="h-full bg-orange-500 shadow-[0_0_15px_#f97316]"
                     />
                   </div>
-                  <p className="text-[10px] font-mono text-white/20 uppercase tracking-widest italic">Syncing next protocol iteration...</p>
+                  <p className="text-[10px] font-mono text-slate-300 uppercase tracking-widest italic">Preparing next round...</p>
                 </div>
               </div>
             </motion.div>
@@ -228,25 +230,26 @@ export default function ReflexGame() {
 
       {/* Eliminated HUD */}
       {isEliminated && (
-        <div className="absolute inset-0 z-40 bg-rose-950/20 backdrop-grayscale pointer-events-none flex items-start justify-center pt-48">
+        <div className="absolute inset-0 z-40 bg-slate-900/40 backdrop-blur-sm pointer-events-none flex items-start justify-center pt-32 sm:pt-48">
            <motion.div 
              initial={{ scale: 0.8, opacity: 0 }}
              animate={{ scale: 1, opacity: 1 }}
-             className="bg-rose-600 px-12 py-4 rounded-xl shadow-[0_0_50px_#e11d48]"
+             className="bg-red-500 border border-red-400 px-8 py-3 sm:px-12 sm:py-4 rounded-2xl shadow-[0_0_40px_#ef4444]"
            >
-              <span className="text-white font-black text-4xl italic uppercase tracking-tighter">ELIMINATED</span>
+              <span className="text-white font-black text-3xl sm:text-4xl italic uppercase tracking-tighter">ELIMINATED</span>
            </motion.div>
         </div>
       )}
 
-      {/* Emotes Section */}
-      <footer className="p-12 flex justify-center items-center gap-8 z-50 relative">
+      {/* Emotes Section - No longer triggers handleTap! */}
+      <footer className="p-6 sm:p-12 flex justify-center items-center gap-4 sm:gap-8 z-50 relative pointer-events-auto">
         {['Flame', 'Zap', 'Ghost', 'Sword', 'Shield'].map((iconName, idx) => (
           <button 
             key={iconName}
-            className="w-20 h-20 rounded-[2rem] bg-white/5 border border-white/5 hover:border-indigo-500/30 hover:bg-white/10 transition-all flex items-center justify-center group active:scale-90"
+            onClick={(e) => { e.stopPropagation(); /* Send emote to chat or room */ }}
+            className="w-14 h-14 sm:w-20 sm:h-20 rounded-[1.5rem] sm:rounded-[2rem] bg-white border border-slate-200 shadow-sm hover:border-orange-500 hover:shadow-md transition-all flex items-center justify-center group active:scale-90"
           >
-            <DynamicIcon name={iconName} className="w-8 h-8 text-white/20 group-hover:text-indigo-400 transition-colors" />
+            <DynamicIcon name={iconName} className="w-6 h-6 sm:w-8 sm:h-8 text-slate-300 group-hover:text-orange-500 transition-colors" />
           </button>
         ))}
       </footer>

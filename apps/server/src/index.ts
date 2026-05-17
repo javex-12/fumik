@@ -167,6 +167,26 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('chat:message', ({ code, message }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+    io.to(code).emit('chat:message', {
+      playerId: player.id,
+      playerName: player.name,
+      message,
+      timestamp: new Date()
+    });
+  });
+
+  socket.on('call:signal', ({ to, signal }) => {
+    io.to(to).emit('call:signal', {
+      from: socket.id,
+      signal
+    });
+  });
+
   socket.on('disconnect', () => {
     console.log(`🔌 Disconnected: ${socket.id}`);
     rooms.forEach((room, code) => {
