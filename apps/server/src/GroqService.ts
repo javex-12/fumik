@@ -1,7 +1,16 @@
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
+if (!GROQ_API_KEY) {
+  console.warn("⚠️  GROQ_API_KEY is not set — AI trivia generation will be disabled.");
+}
+
 export class GroqService {
   static async generateQuestions(category: string, count: number = 5) {
+    if (!GROQ_API_KEY) {
+      console.warn("⚠️  Skipping Groq call — API key missing.");
+      return null;
+    }
+
     try {
       const response = await fetch(
         'https://api.groq.com/openai/v1/chat/completions',
@@ -12,11 +21,11 @@ export class GroqService {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            model: "mixtral-8x7b-32768",
+            model: "llama-3.3-70b-versatile",
             messages: [
               {
                 role: "system",
-                content: "You are a trivia master for a social gaming app called FUMIK. Generate fun, engaging, and slightly challenging trivia questions. Return ONLY a JSON array of questions. Each question must have: id (unique string), category, question, options (array of 4 strings), correctIndex (number 0-3), and difficulty (easy, medium, or hard)."
+                content: "You are a trivia master for a social gaming app called FUMIK. Generate fun, engaging, and slightly challenging trivia questions. Return ONLY a JSON object with a 'questions' array. Each question must have: id (unique string), category, question, options (array of 4 strings), correctIndex (number 0-3), and difficulty (easy, medium, or hard)."
               },
               {
                 role: "user",
@@ -27,6 +36,12 @@ export class GroqService {
           })
         }
       );
+
+      if (!response.ok) {
+        const err = await response.text();
+        console.error("❌ Groq API error:", response.status, err);
+        return null;
+      }
 
       const data: any = await response.json();
       const content = JSON.parse(data.choices[0].message.content);
