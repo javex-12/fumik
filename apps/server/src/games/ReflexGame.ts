@@ -12,7 +12,7 @@ export class ReflexGame extends BaseGame {
       status: 'starting',
       round: 0,
       eliminatedIds: [],
-      lives: room.players.reduce((acc, p) => ({ ...acc, [p.id]: 3 }), {}),
+      lives: room.players.reduce((acc, p) => ({ ...acc, [p.userId]: 3 }), {}),
     };
 
     io.to(room.code).emit('reflex:starting', { countdown: 3 });
@@ -51,29 +51,28 @@ export class ReflexGame extends BaseGame {
     if (!room.gameState || room.currentGame !== 'reflex') return;
 
     const player = room.players.find(p => p.id === socket.id);
-    if (!player || !player.isConnected || room.gameState.eliminatedIds?.includes(socket.id)) return;
+    if (!player || !player.isConnected || room.gameState.eliminatedIds?.includes(player.userId)) return;
 
     const now = Date.now();
     const { status, signalTime, tappedIds } = room.gameState;
 
     if (status === 'waiting') {
       player.score -= 5;
-      socket.emit('reflex:penalty', { playerId: socket.id });
+      socket.emit('reflex:penalty', { playerId: player.userId });
       return;
     }
 
-    if (status === 'GO' && !tappedIds.includes(socket.id)) {
+    if (status === 'GO' && !tappedIds.includes(player.userId)) {
       const reactionTime = now - signalTime;
-      tappedIds.push(socket.id);
+      tappedIds.push(player.userId);
       
       if (tappedIds.length === 1) {
         player.score += 10;
         room.gameState.winner = player.name;
-        socket.broadcast.to(room.code).emit('reflex:roundWinner', { winner: player.name, reactionTime });
-        socket.emit('reflex:roundWinner', { winner: player.name, reactionTime });
+        io.to(room.code).emit('reflex:roundWinner', { winner: player.name, reactionTime });
       }
 
-      const activePlayers = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.id));
+      const activePlayers = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.userId));
       if (tappedIds.length === activePlayers.length) {
         this.endRound(io, room);
       }
@@ -86,12 +85,12 @@ export class ReflexGame extends BaseGame {
     clearTimeout(room.gameState.timer);
     clearTimeout(room.gameState.roundEndTimer);
 
-    const activePlayers = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.id));
+    const activePlayers = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.userId));
     const tappedIds = room.gameState.tappedIds;
 
     activePlayers.forEach(p => {
-      if (!tappedIds.includes(p.id)) {
-        room.gameState.lives[p.id]--;
+      if (!tappedIds.includes(p.userId)) {
+        room.gameState.lives[p.userId]--;
       }
     });
 
@@ -100,13 +99,13 @@ export class ReflexGame extends BaseGame {
       room.gameState.lives[lastId]--;
     }
 
-    Object.entries(room.gameState.lives).forEach(([pid, lives]) => {
-      if ((lives as number) <= 0 && !room.gameState.eliminatedIds.includes(pid)) {
-        room.gameState.eliminatedIds.push(pid);
+    Object.entries(room.gameState.lives).forEach(([uid, lives]) => {
+      if ((lives as number) <= 0 && !room.gameState.eliminatedIds.includes(uid)) {
+        room.gameState.eliminatedIds.push(uid);
       }
     });
 
-    const survivors = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.id));
+    const survivors = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.userId));
 
     io.to(room.code).emit('reflex:result', {
       lives: room.gameState.lives,

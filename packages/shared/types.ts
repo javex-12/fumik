@@ -1,7 +1,8 @@
 export type GameStatus = 'lobby' | 'readying' | 'playing' | 'gameover';
 
 export type Player = {
-  id: string;           // socket id
+  id: string;           // current socket id
+  userId: string;       // persistent unique id (from client)
   name: string;         // display name (max 16 chars)
   avatar: string;       // emoji avatar (picked on join)
   isHost: boolean;
@@ -33,6 +34,7 @@ export type Room = {
   leaderboard: { name: string; avatar: string; score: number }[];
   createdAt: Date;
   lastActivity: Date;
+  adminId?: string;
 }
 
 export type Question = {

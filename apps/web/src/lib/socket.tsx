@@ -16,6 +16,7 @@ if (typeof window !== 'undefined') {
 interface SocketContextType {
   socket: Socket | null;
   room: Room | null;
+  userId: string | null;
   createRoom: (name: string, avatar: string) => void;
   joinRoom: (code: string, name: string, avatar: string) => void;
   updateProfile: (name: string, avatar: string) => void;
@@ -30,10 +31,21 @@ const SocketContext = createContext<SocketContextType | undefined>(undefined);
 export function SocketProvider({ children }: { children: ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [room, setRoom] = useState<Room | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [attemptedUrl, setAttemptedUrl] = useState('');
   const router = useRouter();
+
+  useEffect(() => {
+    // Persistent userId
+    let savedId = localStorage.getItem('fumik_user_id');
+    if (!savedId) {
+      savedId = 'u_' + Math.random().toString(36).substr(2, 9) + Date.now().toString(36);
+      localStorage.setItem('fumik_user_id', savedId);
+    }
+    setUserId(savedId);
+  }, []);
 
   const initSocket = (url: string) => {
     if (socket) socket.disconnect();
@@ -42,8 +54,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     setAttemptedUrl(url);
     
     const socketInstance = io(url, {
-      reconnectionAttempts: 5,
-      timeout: 5000,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 10000,
       transports: ['websocket', 'polling'],
     });
 
@@ -51,6 +64,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       console.log('✅ Connected!');
       setIsConnected(true);
       setError(null);
+      
+      // If we were in a room, try to re-sync
+      const path = window.location.pathname;
+      const roomMatch = path.match(/\/lobby\/([A-Z0-9]+)/);
+      if (roomMatch) {
+        const code = roomMatch[1];
+        const persistentId = localStorage.getItem('fumik_user_id');
+        socketInstance.emit('room:get', { code, userId: persistentId });
+      }
     });
 
     socketInstance.on('connect_error', (err) => {
@@ -80,16 +102,24 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     socketInstance.on('disconnect', () => {
       setIsConnected(false);
-      setRoom(null);
     });
 
+    // Keep-alive ping for slow/free servers (Render/Railway free)
+    const pingInterval = setInterval(() => {
+      if (socketInstance.connected) {
+        socketInstance.emit('ping');
+      }
+    }, 30000);
+
     setSocket(socketInstance);
-    return socketInstance;
+    return () => {
+      clearInterval(pingInterval);
+      socketInstance.disconnect();
+    };
   };
 
   useEffect(() => {
     const isProd = process.env.NODE_ENV === 'production';
-    // Use 127.0.0.1 by default on local to avoid IPv6 localhost issues
     const defaultUrl = isProd 
       ? 'https://fumik-server.onrender.com' 
       : `http://127.0.0.1:8080`;
@@ -101,13 +131,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const createRoom = (name: string, avatar: string) => socket?.emit('room:create', { name, avatar });
-  const joinRoom = (code: string, name: string, avatar: string) => socket?.emit('room:join', { code, name, avatar });
+  const createRoom = (name: string, avatar: string) => socket?.emit('room:create', { name, avatar, userId });
+  const joinRoom = (code: string, name: string, avatar: string) => socket?.emit('room:join', { code, name, avatar, userId });
   const updateProfile = (name: string, avatar: string) => room && socket?.emit('profile:update', { code: room.code, name, avatar });
   const setManualUrl = (url: string) => initSocket(url);
 
   return (
-    <SocketContext.Provider value={{ socket, room, createRoom, joinRoom, updateProfile, error, isConnected, attemptedUrl, setManualUrl }}>
+    <SocketContext.Provider value={{ socket, room, userId, createRoom, joinRoom, updateProfile, error, isConnected, attemptedUrl, setManualUrl }}>
       {children}
     </SocketContext.Provider>
   );

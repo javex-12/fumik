@@ -15,7 +15,7 @@ export class ScribbleGame extends BaseGame {
     room.gameState = {
       status: 'starting',
       round: 0,
-      drawerOrder: room.players.filter(p => p.isConnected).map(p => p.id).sort(() => Math.random() - 0.5),
+      drawerOrder: room.players.filter(p => p.isConnected).map(p => p.userId).sort(() => Math.random() - 0.5),
     };
 
     io.to(room.code).emit('scribble:starting', { countdown: 3 });
@@ -28,25 +28,25 @@ export class ScribbleGame extends BaseGame {
   private startRound(io: Server, room: Room) {
     if (!room.gameState || room.currentGame !== 'scribble') return;
 
-    const drawerId = room.gameState.drawerOrder[room.gameState.round % room.gameState.drawerOrder.length];
+    const drawerUserId = room.gameState.drawerOrder[room.gameState.round % room.gameState.drawerOrder.length];
     const word = SCRIBBLE_WORDS[Math.floor(Math.random() * SCRIBBLE_WORDS.length)];
 
-    room.gameState.drawerId = drawerId;
+    room.gameState.drawerUserId = drawerUserId;
     room.gameState.word = word;
     room.gameState.canvas = [];
     room.gameState.status = 'playing';
 
-    const drawer = room.players.find(p => p.id === drawerId);
+    const drawer = room.players.find(p => p.userId === drawerUserId);
     
     room.players.forEach(p => {
-      if (p.id === drawerId) {
+      if (p.userId === drawerUserId) {
         io.to(p.id).emit('scribble:word', { word });
       } else {
         io.to(p.id).emit('scribble:ready', { drawer: drawer?.name });
       }
     });
 
-    io.to(room.code).emit('scribble:roundStart', { drawerId, round: room.gameState.round + 1 });
+    io.to(room.code).emit('scribble:roundStart', { drawerId: drawer?.id, round: room.gameState.round + 1 });
 
     room.gameState.timer = setTimeout(() => {
       this.endRound(io, room);
@@ -57,23 +57,25 @@ export class ScribbleGame extends BaseGame {
     if (!room.gameState || room.currentGame !== 'scribble') return;
     const { action, ...payload } = data;
 
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
     if (action === 'draw') {
-      if (room.gameState.drawerId !== socket.id) return;
+      if (room.gameState.drawerUserId !== player.userId) return;
       room.gameState.canvas.push(payload);
       socket.broadcast.to(room.code).emit('scribble:update', { canvas: [payload] });
     } else if (action === 'guess') {
-      if (room.gameState.drawerId === socket.id) return;
+      if (room.gameState.drawerUserId === player.userId) return;
       const correctWord = room.gameState.word.toLowerCase();
       const guess = payload.text.toLowerCase().trim();
 
       if (guess === correctWord) {
-        const guesser = room.players.find(p => p.id === socket.id);
-        const drawer = room.players.find(p => p.id === room.gameState.drawerId);
+        const drawer = room.players.find(p => p.userId === room.gameState.drawerUserId);
         
-        if (guesser) guesser.score += 100;
+        player.score += 100;
         if (drawer) drawer.score += 50;
 
-        io.to(room.code).emit('scribble:correct', { player: guesser?.name, word: room.gameState.word });
+        io.to(room.code).emit('scribble:correct', { player: player.name, word: room.gameState.word });
         this.endRound(io, room);
       } else {
         socket.emit('scribble:wrong', { text: payload.text });

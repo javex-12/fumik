@@ -10,7 +10,7 @@ export class ClickerGame extends BaseGame {
   start(io: Server, room: Room) {
     room.gameState = {
       status: 'starting',
-      clicks: room.players.reduce((acc, p) => ({ ...acc, [p.id]: 0 }), {}),
+      clicks: room.players.reduce((acc, p) => ({ ...acc, [p.userId]: 0 }), {}),
       duration: 10000, // 10 seconds
     };
 
@@ -37,7 +37,10 @@ export class ClickerGame extends BaseGame {
   handleInput(io: Server, socket: Socket, room: Room, data: any) {
     if (!room.gameState || room.currentGame !== 'clicker' || room.gameState.status !== 'playing') return;
 
-    room.gameState.clicks[socket.id] = (room.gameState.clicks[socket.id] || 0) + 1;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    room.gameState.clicks[player.userId] = (room.gameState.clicks[player.userId] || 0) + 1;
   }
 
   private endGame(io: Server, room: Room) {
@@ -45,12 +48,12 @@ export class ClickerGame extends BaseGame {
 
     const clicks = room.gameState.clicks;
     const sorted = Object.entries(clicks)
-      .map(([id, count]) => ({ id, count: count as number }))
+      .map(([userId, count]) => ({ userId, count: count as number }))
       .sort((a, b) => b.count - a.count);
 
     // Award scores
     sorted.forEach((item, index) => {
-      const player = room.players.find(p => p.id === item.id);
+      const player = room.players.find(p => p.userId === item.userId);
       if (player) {
         if (index === 0) player.score += 100;
         else if (index === 1) player.score += 70;
@@ -59,7 +62,7 @@ export class ClickerGame extends BaseGame {
       }
     });
 
-    const winnerName = room.players.find(p => p.id === sorted[0]?.id)?.name || 'Nobody';
+    const winnerName = room.players.find(p => p.userId === sorted[0]?.userId)?.name || 'Nobody';
     
     io.to(room.code).emit('clicker:results', { clicks, winner: winnerName });
     

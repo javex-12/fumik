@@ -21,8 +21,8 @@ export class VoteGame extends BaseGame {
     room.gameState = {
       status: 'starting',
       round: 0,
-      eliminatedIds: [],
-      lives: room.players.reduce((acc, p) => ({ ...acc, [p.id]: 3 }), {}),
+      eliminatedUserIds: [],
+      lives: room.players.reduce((acc, p) => ({ ...acc, [p.userId]: 3 }), {}),
     };
 
     io.to(room.code).emit('vote:starting', { countdown: 3 });
@@ -37,7 +37,7 @@ export class VoteGame extends BaseGame {
 
     const question = VOTE_QUESTIONS[Math.floor(Math.random() * VOTE_QUESTIONS.length)];
     room.gameState.currentQuestion = question;
-    room.gameState.votes = {};
+    room.gameState.votes = {}; // userId -> option
     room.gameState.status = 'playing';
     room.gameState.round++;
 
@@ -52,10 +52,13 @@ export class VoteGame extends BaseGame {
     if (!room.gameState || room.currentGame !== 'vote' || room.gameState.status !== 'playing') return;
     const { option } = data;
 
-    if (room.gameState.votes[socket.id] !== undefined) return;
-    room.gameState.votes[socket.id] = option;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player || room.gameState.eliminatedUserIds.includes(player.userId)) return;
 
-    const activePlayers = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.id));
+    if (room.gameState.votes[player.userId] !== undefined) return;
+    room.gameState.votes[player.userId] = option;
+
+    const activePlayers = room.players.filter(p => p.isConnected && !room.gameState.eliminatedUserIds.includes(p.userId));
     if (Object.keys(room.gameState.votes).length === activePlayers.length) {
       this.endRound(io, room);
     }
@@ -75,28 +78,28 @@ export class VoteGame extends BaseGame {
     else if (countB > countA) majority = 'B';
     else majority = 'NONE';
 
-    const activePlayers = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.id));
+    const activePlayers = room.players.filter(p => p.isConnected && !room.gameState.eliminatedUserIds.includes(p.userId));
     
     activePlayers.forEach(p => {
-      const vote = room.gameState.votes[p.id];
+      const vote = room.gameState.votes[p.userId];
       if (majority === 'NONE' || vote !== majority) {
-        room.gameState.lives[p.id]--;
+        room.gameState.lives[p.userId]--;
       }
     });
 
-    Object.entries(room.gameState.lives).forEach(([pid, lives]) => {
-      if ((lives as number) <= 0 && !room.gameState.eliminatedIds.includes(pid)) {
-        room.gameState.eliminatedIds.push(pid);
+    Object.entries(room.gameState.lives).forEach(([uid, lives]) => {
+      if ((lives as number) <= 0 && !room.gameState.eliminatedUserIds.includes(uid)) {
+        room.gameState.eliminatedUserIds.push(uid);
       }
     });
 
-    const survivors = room.players.filter(p => p.isConnected && !room.gameState.eliminatedIds.includes(p.id));
+    const survivors = room.players.filter(p => p.isConnected && !room.gameState.eliminatedUserIds.includes(p.userId));
 
     io.to(room.code).emit('vote:reveal', {
       votes: room.gameState.votes,
       majority,
       lives: room.gameState.lives,
-      eliminated: room.gameState.eliminatedIds,
+      eliminated: room.gameState.eliminatedUserIds,
     });
 
     if (survivors.length <= 1) {

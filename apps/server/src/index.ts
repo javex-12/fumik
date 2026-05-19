@@ -18,6 +18,8 @@ import { MathGame } from './games/MathGame';
 import { EmojiGame } from './games/EmojiGame';
 import { TicTacToeGame } from './games/TicTacToeGame';
 import { MemoryGame } from './games/MemoryGame';
+import { BallGame } from './games/BallGame';
+import { GroqService } from './GroqService';
 
 dotenv.config();
 
@@ -44,6 +46,7 @@ gameRegistry.register(new MathGame());
 gameRegistry.register(new EmojiGame());
 gameRegistry.register(new TicTacToeGame());
 gameRegistry.register(new MemoryGame());
+gameRegistry.register(new BallGame());
 
 const app = express();
 app.use(cors());
@@ -59,6 +62,7 @@ const io = new Server(httpServer, {
 });
 
 const rooms: Map<string, Room> = new Map();
+const onlineUsers: Map<string, { socketId: string, name: string, avatar: string }> = new Map();
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -80,18 +84,43 @@ setInterval(() => {
 io.on('connection', (socket) => {
   console.log(`🔌 New Connection: ${socket.id}`);
 
-  socket.on('room:create', ({ name, avatar }) => {
-    console.log(`🏠 Create Room: ${name}`);
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
+
+  socket.on('social:login', ({ userId, name, avatar }) => {
+    console.log(`👤 Social Login: ${name} (${userId})`);
+    onlineUsers.set(userId, { socketId: socket.id, name, avatar });
+    io.emit('social:online-count', onlineUsers.size);
+  });
+
+  socket.on('social:get-online', () => {
+    const users = Array.from(onlineUsers.entries()).map(([userId, data]) => ({
+      userId,
+      ...data
+    }));
+    socket.emit('social:online-list', users);
+  });
+
+  socket.on('social:invite', ({ toUserId, fromName, roomCode }) => {
+    const target = onlineUsers.get(toUserId);
+    if (target) {
+      io.to(target.socketId).emit('social:invite', { fromName, roomCode });
+    }
+  });
+
+  socket.on('room:create', async ({ name, avatar, userId }) => {
+    console.log(`🏠 Create Room: ${name} (${userId})`);
     let code = generateRoomCode();
     while (rooms.has(code)) code = generateRoomCode();
 
     const host: Player = {
-      id: socket.id, name, avatar, isHost: true, score: 0, isReady: false, isConnected: true,
+      id: socket.id, userId, name, avatar, isHost: true, score: 0, isReady: false, isConnected: true,
     };
 
     const newRoom: Room = {
       code, players: [host], currentGame: null, gameStatus: 'lobby', gameState: null,
-      round: 0, leaderboard: [], createdAt: new Date(), lastActivity: new Date(),
+      round: 0, leaderboard: [], createdAt: new Date(), lastActivity: new Date(), adminId: userId
     };
 
     rooms.set(code, newRoom);
@@ -100,44 +129,78 @@ io.on('connection', (socket) => {
     console.log(`✅ Room Created: ${code}`);
   });
 
-  socket.on('room:join', ({ code, name, avatar }) => {
-    console.log(`🤝 Join Request: ${name} -> ${code}`);
+  socket.on('room:join', ({ code, name, avatar, userId }) => {
+    console.log(`🤝 Join Request: ${name} (${userId}) -> ${code}`);
     const room = rooms.get(code);
     if (!room) return socket.emit('error', 'Room not found');
 
-    const newPlayer: Player = {
-      id: socket.id, name, avatar, isHost: false, score: 0, isReady: false, isConnected: true,
-    };
+    const existingPlayer = room.players.find(p => p.userId === userId);
+    if (existingPlayer) {
+      existingPlayer.id = socket.id;
+      existingPlayer.isConnected = true;
+      existingPlayer.name = name;
+      existingPlayer.avatar = avatar;
+      
+      if (room.adminId === userId) {
+        const currentHost = room.players.find(p => p.isHost);
+        if (currentHost && currentHost.userId !== userId) currentHost.isHost = false;
+        existingPlayer.isHost = true;
+      }
+    } else {
+      const newPlayer: Player = {
+        id: socket.id, userId, name, avatar, isHost: false, score: 0, isReady: false, isConnected: true,
+      };
+      room.players.push(newPlayer);
+    }
 
-    room.players.push(newPlayer);
     room.lastActivity = new Date();
     socket.join(code);
     io.to(code).emit('room:update', room);
     socket.emit('room:joined', room);
-    console.log(`✅ Player Joined: ${name} to ${code}`);
+    console.log(`✅ Player Joined/Reconnected: ${name} to ${code}`);
   });
 
-  socket.on('room:get', ({ code }) => {
-    console.log(`🔍 Get Room Data: ${code}`);
+  socket.on('room:get', ({ code, userId }) => {
+    console.log(`🔍 Get Room Data: ${code} (User: ${userId})`);
     const room = rooms.get(code);
     if (room) {
+      if (userId) {
+        const player = room.players.find(p => p.userId === userId);
+        if (player) {
+          player.id = socket.id;
+          player.isConnected = true;
+        }
+      }
       socket.join(code);
-      socket.emit('room:update', room);
-      console.log(`✅ Data Sent for ${code}`);
+      io.to(code).emit('room:update', room);
+      console.log(`✅ Data Sent and Re-linked for ${code}`);
     } else {
       console.log(`❌ Room ${code} not found`);
       socket.emit('error', 'Room not found');
     }
   });
 
-  socket.on('game:start', ({ code, gameType }) => {
+  socket.on('game:start', async ({ code, gameType }) => {
     const room = rooms.get(code);
     if (!room) return;
+    
+    const requester = room.players.find(p => p.id === socket.id);
+    if (!requester?.isHost) return;
+
     console.log(`🎮 Start Game: ${gameType} in ${code}`);
     room.currentGame = gameType;
     room.gameStatus = 'readying';
     room.players.forEach(p => p.isReady = false);
     io.to(code).emit('room:update', room);
+
+    if (gameType === 'brain') {
+      console.log(`🧠 Generating AI questions for room ${code}...`);
+      const aiQuestions = await GroqService.generateQuestions("mixed trivia", 10);
+      if (aiQuestions) {
+        room.gameState = { ...room.gameState, aiQuestions };
+        console.log(`✅ AI Questions ready!`);
+      }
+    }
   });
 
   socket.on('game:ready', ({ code }) => {
@@ -174,6 +237,7 @@ io.on('connection', (socket) => {
     if (!player) return;
     io.to(code).emit('chat:message', {
       playerId: player.id,
+      userId: player.userId,
       playerName: player.name,
       message,
       timestamp: new Date()
@@ -189,10 +253,29 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     console.log(`🔌 Disconnected: ${socket.id}`);
+    
+    onlineUsers.forEach((data, userId) => {
+      if (data.socketId === socket.id) {
+        onlineUsers.delete(userId);
+      }
+    });
+    io.emit('social:online-count', onlineUsers.size);
+
     rooms.forEach((room, code) => {
       const playerIndex = room.players.findIndex((p) => p.id === socket.id);
       if (playerIndex !== -1) {
+        const wasHost = room.players[playerIndex].isHost;
         room.players[playerIndex].isConnected = false;
+
+        if (wasHost) {
+          const nextPlayer = room.players.find(p => p.isConnected && p.userId !== room.players[playerIndex].userId);
+          if (nextPlayer) {
+            room.players[playerIndex].isHost = false;
+            nextPlayer.isHost = true;
+            console.log(`👑 New Host assigned: ${nextPlayer.name} in room ${code}`);
+          }
+        }
+
         io.to(code).emit('room:update', room);
       }
     });

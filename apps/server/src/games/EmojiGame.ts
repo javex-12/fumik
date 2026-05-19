@@ -39,7 +39,7 @@ export class EmojiGame extends BaseGame {
     room.gameState.correctEmoji = set.odd;
     room.gameState.status = 'playing';
     room.gameState.startTime = Date.now();
-    room.gameState.answeredIds = [];
+    room.gameState.answeredUserIds = [];
 
     io.to(room.code).emit('emoji:question', {
       options,
@@ -56,19 +56,19 @@ export class EmojiGame extends BaseGame {
     if (!room.gameState || room.currentGame !== 'emoji' || room.gameState.status !== 'playing') return;
     const { emoji } = data;
 
-    if (room.gameState.answeredIds.includes(socket.id)) return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    if (room.gameState.answeredUserIds.includes(player.userId)) return;
 
     if (emoji === room.gameState.correctEmoji) {
-      const player = room.players.find(p => p.id === socket.id);
-      if (player) {
-        player.score += 50;
-        room.gameState.answeredIds.push(socket.id);
-        socket.emit('emoji:correct');
-        
-        const activePlayers = room.players.filter(p => p.isConnected);
-        if (room.gameState.answeredIds.length === activePlayers.length) {
-          this.endRound(io, room);
-        }
+      player.score += 50;
+      room.gameState.answeredUserIds.push(player.userId);
+      socket.emit('emoji:correct');
+      
+      const activePlayers = room.players.filter(p => p.isConnected);
+      if (room.gameState.answeredUserIds.length === activePlayers.length) {
+        this.endRound(io, room);
       }
     } else {
       socket.emit('emoji:wrong');

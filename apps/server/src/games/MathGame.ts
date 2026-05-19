@@ -44,7 +44,7 @@ export class MathGame extends BaseGame {
     room.gameState.answer = answer;
     room.gameState.status = 'playing';
     room.gameState.startTime = Date.now();
-    room.gameState.answeredIds = [];
+    room.gameState.answeredUserIds = [];
 
     io.to(room.code).emit('math:question', {
       question: room.gameState.question,
@@ -61,22 +61,22 @@ export class MathGame extends BaseGame {
     if (!room.gameState || room.currentGame !== 'math' || room.gameState.status !== 'playing') return;
     const { answer } = data;
 
-    if (room.gameState.answeredIds.includes(socket.id)) return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    if (room.gameState.answeredUserIds.includes(player.userId)) return;
 
     if (parseInt(answer) === room.gameState.answer) {
-      const player = room.players.find(p => p.id === socket.id);
-      if (player) {
-        const timeTaken = Date.now() - room.gameState.startTime;
-        const points = Math.max(10, 100 - Math.floor(timeTaken / 100));
-        player.score += points;
-        room.gameState.answeredIds.push(socket.id);
-        socket.emit('math:correct', { points });
-        
-        // If everyone answered correctly, end round early
-        const activePlayers = room.players.filter(p => p.isConnected);
-        if (room.gameState.answeredIds.length === activePlayers.length) {
-          this.endRound(io, room);
-        }
+      const timeTaken = Date.now() - room.gameState.startTime;
+      const points = Math.max(10, 100 - Math.floor(timeTaken / 100));
+      player.score += points;
+      room.gameState.answeredUserIds.push(player.userId);
+      socket.emit('math:correct', { points });
+      
+      // If everyone answered correctly, end round early
+      const activePlayers = room.players.filter(p => p.isConnected);
+      if (room.gameState.answeredUserIds.length === activePlayers.length) {
+        this.endRound(io, room);
       }
     } else {
       socket.emit('math:wrong');

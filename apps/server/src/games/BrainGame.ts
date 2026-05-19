@@ -9,11 +9,14 @@ export class BrainGame extends BaseGame {
   }
 
   start(io: Server, room: Room) {
+    const questions = room.gameState?.aiQuestions || [...TRIVIA_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 10);
+    
     room.gameState = {
+      ...room.gameState,
       status: 'starting',
       round: 0,
-      totalRounds: 10,
-      questions: [...TRIVIA_QUESTIONS].sort(() => Math.random() - 0.5).slice(0, 10),
+      totalRounds: questions.length,
+      questions: questions,
     };
 
     io.to(room.code).emit('brain:starting', { countdown: 3 });
@@ -48,14 +51,14 @@ export class BrainGame extends BaseGame {
     const { questionId, answerIndex } = data;
 
     const player = room.players.find(p => p.id === socket.id);
-    if (!player || !player.isConnected || room.gameState.playerAnswers[socket.id] !== undefined) return;
+    if (!player || !player.isConnected || room.gameState.playerAnswers[player.userId] !== undefined) return;
 
     const currentQuestion = room.gameState.currentQuestion;
     const isCorrect = answerIndex === currentQuestion.correctIndex;
     const now = Date.now();
     const timeTaken = now - room.gameState.questionStartTime;
 
-    room.gameState.playerAnswers[socket.id] = { answerIndex, isCorrect, timeTaken };
+    room.gameState.playerAnswers[player.userId] = { answerIndex, isCorrect, timeTaken };
 
     if (isCorrect) {
       const correctAnswers = Object.values(room.gameState.playerAnswers).filter((a: any) => a.isCorrect);
@@ -81,7 +84,7 @@ export class BrainGame extends BaseGame {
     io.to(room.code).emit('brain:reveal', {
       correctIndex,
       playerAnswers: room.gameState.playerAnswers,
-      scores: room.players.map(p => ({ id: p.id, score: p.score })),
+      scores: room.players.map(p => ({ id: p.id, userId: p.userId, score: p.score })),
     });
 
     room.gameState.round++;
