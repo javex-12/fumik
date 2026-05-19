@@ -32,7 +32,6 @@
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@types/simple-peer": "^9.11.9",
-    "@types/three": "^0.164.0",
     "autoprefixer": "^10.5.0",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
