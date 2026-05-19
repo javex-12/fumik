@@ -32,47 +32,88 @@ export default function LandingPage() {
   const [isJoining, setIsJoining] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
+  const [friends, setFriends] = useState<any[]>([]);
+  const [friendRequests, setFriendRequests] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [socialTab, setSocialTab] = useState<'online'|'friends'|'requests'>('online');
+  const [socialUserId, setSocialUserId] = useState<string | null>(null);
+  const [nameError, setNameError] = useState("");
+  const [isRegistering, setIsRegistering] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
     const savedName = localStorage.getItem('fumik_user_name');
     const savedAvatar = localStorage.getItem('fumik_user_avatar');
+    const savedSocialId = localStorage.getItem('fumik_social_id');
     if (savedName) setName(savedName);
     if (savedAvatar) setSelectedAvatar(savedAvatar);
+    if (savedSocialId) setSocialUserId(savedSocialId);
   }, []);
 
   useEffect(() => {
-    if (isConnected && userId && name) {
-      socket?.emit('social:login', { userId, name, avatar: selectedAvatar });
-      socket?.emit('social:get-online');
-    }
+    if (!socket) return;
+
+    const handleRegistered = ({ ok, username, userId: uid, error: err }: any) => {
+      setIsRegistering(false);
+      if (!ok) { setNameError(err); return; }
+      setNameError("");
+      const finalName = username;
+      setName(finalName);
+      setSocialUserId(uid);
+      localStorage.setItem('fumik_user_name', finalName);
+      localStorage.setItem('fumik_user_avatar', selectedAvatar);
+      localStorage.setItem('fumik_social_id', uid);
+      socket.emit('social:get-online');
+      socket.emit('social:get-friends', { userId: uid });
+      setStep('dashboard');
+    };
 
     const handleOnlineList = (list: any[]) => setOnlineUsers(list);
-    const handleInvite = ({ fromName, roomCode }: any) => {
-      if (confirm(`🎮 ${fromName} invited you to join room: ${roomCode}. Join now?`)) {
-        if (roomCode === 'QUICK') {
-          // In a real app, we'd have the inviter's actual room code
-          alert("Joining quick room...");
-        } else {
-          joinRoom(roomCode, name, selectedAvatar);
-        }
-      }
+    const handleFriendsList = ({ friends: f, requests: r }: any) => { setFriends(f); setFriendRequests(r); };
+    const handleSearchResults = (results: any[]) => setSearchResults(results);
+    const handleFriendRequest = ({ fromUserId, fromName, fromAvatar }: any) => {
+      setFriendRequests(prev => [...prev.filter(r => r.userId !== fromUserId), { userId: fromUserId, name: fromName, avatar: fromAvatar }]);
+    };
+    const handleInvite = ({ fromName, roomCode: rc }: any) => {
+      if (confirm(`🎮 ${fromName} invited you! Join their game?`)) joinRoom(rc, name, selectedAvatar);
     };
 
-    socket?.on('social:online-list', handleOnlineList);
-    socket?.on('social:invite', handleInvite);
+    socket.on('social:registered', handleRegistered);
+    socket.on('social:online-list', handleOnlineList);
+    socket.on('social:friends-list', handleFriendsList);
+    socket.on('social:search-results', handleSearchResults);
+    socket.on('social:friend-request', handleFriendRequest);
+    socket.on('social:invite', handleInvite);
+
+    if (isConnected && socialUserId) {
+      socket.emit('social:get-online');
+      socket.emit('social:get-friends', { userId: socialUserId });
+    }
 
     return () => {
-      socket?.off('social:online-list', handleOnlineList);
-      socket?.off('social:invite', handleInvite);
+      socket.off('social:registered', handleRegistered);
+      socket.off('social:online-list', handleOnlineList);
+      socket.off('social:friends-list', handleFriendsList);
+      socket.off('social:search-results', handleSearchResults);
+      socket.off('social:friend-request', handleFriendRequest);
+      socket.off('social:invite', handleInvite);
     };
-  }, [isConnected, userId, socket, name, selectedAvatar]);
+  }, [socket, isConnected, socialUserId]);
+
+  const handleSearch = (q: string) => {
+    setSearchQuery(q);
+    if (q.length >= 2) socket?.emit('social:search', { query: q });
+    else setSearchResults([]);
+  };
 
   const handleFinishOnboarding = () => {
-    if (!name) return alert("Tell us your legend name!");
-    localStorage.setItem('fumik_user_name', name);
-    localStorage.setItem('fumik_user_avatar', selectedAvatar);
-    setStep('dashboard');
+    if (!name.trim()) return setNameError('Enter your legend name!');
+    if (!isConnected) return setNameError('Not connected to server yet. Wait a moment.');
+    setIsRegistering(true);
+    setNameError("");
+    const token = localStorage.getItem('fumik_user_id') || userId || '';
+    socket?.emit('social:register', { username: name.trim(), token, avatar: selectedAvatar });
   };
 
   const handleCreateRoom = () => {
@@ -85,6 +126,24 @@ export default function LandingPage() {
     if (!roomCode || roomCode.length !== 5) return;
     setIsLoading(true);
     joinRoom(roomCode, name, selectedAvatar);
+  };
+
+  const sendFriendRequest = (toUserId: string) => {
+    if (!socialUserId) return;
+    socket?.emit('social:friend-request', { fromUserId: socialUserId, toUserId });
+    alert('Friend request sent!');
+  };
+
+  const acceptFriendRequest = (fromUserId: string) => {
+    if (!socialUserId) return;
+    socket?.emit('social:accept-friend', { myUserId: socialUserId, fromUserId });
+    setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId));
+    socket?.emit('social:get-friends', { userId: socialUserId });
+  };
+
+  const inviteToRoom = (toUserId: string, toName: string) => {
+    socket?.emit('social:invite', { toUserId, fromName: name, roomCode: 'PENDING' });
+    handleCreateRoom();
   };
 
   if (!isMounted) return null;
@@ -163,12 +222,18 @@ export default function LandingPage() {
                 </div>
               </div>
 
+                {nameError && (
+                  <div className="max-w-sm mx-auto bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-bold uppercase tracking-widest p-4 rounded-2xl text-center">
+                    {nameError}
+                  </div>
+                )}
+
               <button 
                 onClick={handleFinishOnboarding}
-                disabled={!name}
-                className="btn-primary w-full max-w-xs py-5 text-lg shadow-[0_0_30px_rgba(249,115,22,0.3)] disabled:opacity-30"
+                disabled={!name || isRegistering}
+                className="btn-primary w-full max-w-xs py-5 text-lg shadow-[0_0_30px_rgba(249,115,22,0.3)] disabled:opacity-30 flex items-center justify-center gap-3"
               >
-                ENTER THE REALM
+                {isRegistering ? <><div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" /> Claiming Legend...</>: 'ENTER THE REALM'}
               </button>
             </div>
           </motion.div>
@@ -296,52 +361,141 @@ export default function LandingPage() {
                   </section>
                 </div>
 
-                <div className="lg:col-span-4 space-y-8">
+                <div className="lg:col-span-4">
                   <div className="bg-slate-900 rounded-[2.5rem] border border-slate-800 flex flex-col h-[600px] overflow-hidden">
-                    <div className="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 backdrop-blur-md">
-                      <div className="flex items-center gap-3">
-                        <Icons.Users className="w-5 h-5 text-orange-500" />
-                        <h4 className="font-black italic uppercase tracking-tight">Social Hub</h4>
+                    {/* Header */}
+                    <div className="p-6 border-b border-slate-800 space-y-4">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <Icons.Users className="w-5 h-5 text-orange-500" />
+                          <h4 className="font-black italic uppercase tracking-tight">Social Hub</h4>
+                        </div>
+                        <div className="px-3 py-1 bg-orange-500/10 rounded-full border border-orange-500/20 text-[8px] font-black text-orange-500 uppercase tracking-widest">
+                          {onlineUsers.length} Online
+                        </div>
                       </div>
-                      <div className="px-3 py-1 bg-orange-500/10 rounded-full border border-orange-500/20 text-[8px] font-black text-orange-500 uppercase tracking-widest">
-                        {onlineUsers.length} Online
+                      {/* Search */}
+                      <div className="relative">
+                        <Icons.Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                        <input
+                          type="text"
+                          value={searchQuery}
+                          onChange={e => handleSearch(e.target.value)}
+                          placeholder="Search players..."
+                          className="w-full bg-slate-950/50 border border-slate-800 focus:border-orange-500 pl-10 pr-4 py-3 rounded-2xl outline-none text-sm font-bold placeholder:text-slate-700 transition-colors"
+                        />
+                      </div>
+                      {/* Tabs */}
+                      <div className="flex gap-2">
+                        {(['online','friends','requests'] as const).map(tab => (
+                          <button key={tab} onClick={() => setSocialTab(tab)}
+                            className={clsx('flex-1 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all relative',
+                              socialTab === tab ? 'bg-orange-500 text-white' : 'bg-slate-800 text-slate-500 hover:text-white'
+                            )}>
+                            {tab}
+                            {tab === 'requests' && friendRequests.length > 0 && (
+                              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[8px] flex items-center justify-center border-2 border-slate-900">{friendRequests.length}</span>
+                            )}
+                          </button>
+                        ))}
                       </div>
                     </div>
-                    
+
+                    {/* Body */}
                     <div className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide">
-                      {onlineUsers.filter(u => u.userId !== userId).length > 0 ? (
-                        onlineUsers.filter(u => u.userId !== userId).map((user) => (
-                          <div key={user.userId} className="group p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between hover:border-orange-500/30 transition-all">
+                      {/* Search Results */}
+                      {searchQuery.length >= 2 ? (
+                        searchResults.length > 0 ? searchResults.map(u => (
+                          <div key={u.userId} className="group p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between hover:border-orange-500/30 transition-all">
                             <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-700">
-                                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatar}`} />
+                              <div className="w-9 h-9 rounded-xl overflow-hidden border border-slate-700 relative">
+                                <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.avatar}`} />
+                                {u.isOnline && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-900" />}
                               </div>
-                              <div>
-                                <div className="text-xs font-black uppercase tracking-tight text-white">{user.name}</div>
-                                <div className="text-[8px] font-bold text-slate-600 uppercase tracking-widest flex items-center gap-1">
-                                  <div className="w-1 h-1 rounded-full bg-green-500" />
-                                  Ready to Play
-                                </div>
-                              </div>
+                              <div className="text-xs font-black uppercase tracking-tight text-white">{u.name}</div>
                             </div>
-                            <button 
-                              onClick={() => socket?.emit('social:invite', { toUserId: user.userId, fromName: name, roomCode: 'QUICK' })}
-                              className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-slate-500 hover:bg-orange-600 hover:text-white transition-all group-hover:scale-110"
-                            >
+                            <button onClick={() => sendFriendRequest(u.userId)} className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-slate-500 hover:bg-orange-600 hover:text-white transition-all">
                               <Icons.UserPlus className="w-4 h-4" />
                             </button>
                           </div>
-                        ))
+                        )) : <div className="text-center text-slate-600 text-xs pt-8">No players found</div>
+                      ) : socialTab === 'online' ? (
+                        onlineUsers.filter(u => u.userId !== socialUserId).length > 0
+                          ? onlineUsers.filter(u => u.userId !== socialUserId).map(user => (
+                            <div key={user.userId} className="group p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between hover:border-orange-500/30 transition-all">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl overflow-hidden border border-slate-700 relative">
+                                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatar}`} />
+                                  <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-900" />
+                                </div>
+                                <div>
+                                  <div className="text-xs font-black uppercase tracking-tight text-white">{user.name}</div>
+                                  <div className="text-[8px] text-slate-600 uppercase tracking-widest">Online</div>
+                                </div>
+                              </div>
+                              <div className="flex gap-1">
+                                <button onClick={() => sendFriendRequest(user.userId)} title="Add Friend" className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-slate-500 hover:bg-slate-700 hover:text-white transition-all">
+                                  <Icons.UserPlus className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => inviteToRoom(user.userId, user.name)} title="Invite to Game" className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white hover:bg-orange-500 transition-all">
+                                  <Icons.Gamepad className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                          : <div className="flex flex-col items-center justify-center h-full text-center space-y-4 px-8">
+                              <Icons.Ghost className="w-10 h-10 text-slate-700" />
+                              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">No one else is online right now</p>
+                            </div>
+                      ) : socialTab === 'friends' ? (
+                        friends.length > 0
+                          ? friends.map(f => (
+                            <div key={f.userId} className="group p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between hover:border-orange-500/30 transition-all">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl overflow-hidden border border-slate-700 relative">
+                                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${f.avatar}`} />
+                                  {f.isOnline && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-900" />}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-black uppercase tracking-tight text-white">{f.name}</div>
+                                  <div className={clsx('text-[8px] uppercase tracking-widest', f.isOnline ? 'text-green-500' : 'text-slate-600')}>{f.isOnline ? 'Online' : 'Offline'}</div>
+                                </div>
+                              </div>
+                              {f.isOnline && (
+                                <button onClick={() => inviteToRoom(f.userId, f.name)} title="Invite to Game" className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white hover:bg-orange-500 transition-all">
+                                  <Icons.Gamepad className="w-4 h-4" />
+                                </button>
+                              )}
+                            </div>
+                          ))
+                          : <div className="flex flex-col items-center justify-center h-full text-center space-y-4 px-8">
+                              <Icons.Heart className="w-10 h-10 text-slate-700" />
+                              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">No friends yet — search for players to add them!</p>
+                            </div>
                       ) : (
-                        <div className="flex flex-col items-center justify-center h-full text-center space-y-4 px-8">
-                          <div className="w-20 h-20 rounded-[2rem] bg-slate-800 flex items-center justify-center text-slate-600">
-                            <Icons.Ghost className="w-10 h-10" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-black italic text-slate-400 uppercase">You're a Lone Wolf</div>
-                            <p className="text-[10px] font-bold text-slate-600 uppercase leading-relaxed tracking-widest mt-2">No other legends are online right now. Invite some friends to start the party!</p>
-                          </div>
-                        </div>
+                        friendRequests.length > 0
+                          ? friendRequests.map(r => (
+                            <div key={r.userId} className="p-4 rounded-2xl bg-slate-950/50 border border-slate-800 flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl overflow-hidden border border-orange-500/50">
+                                  <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${r.avatar}`} />
+                                </div>
+                                <div className="text-xs font-black uppercase tracking-tight text-white">{r.name}</div>
+                              </div>
+                              <div className="flex gap-1">
+                                <button onClick={() => acceptFriendRequest(r.userId)} className="w-9 h-9 rounded-xl bg-green-600 flex items-center justify-center text-white hover:bg-green-500 transition-all">
+                                  <Icons.Check className="w-4 h-4" />
+                                </button>
+                                <button onClick={() => setFriendRequests(prev => prev.filter(x => x.userId !== r.userId))} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-red-600 hover:text-white transition-all">
+                                  <Icons.X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                          : <div className="flex flex-col items-center justify-center h-full text-center space-y-4 px-8">
+                              <Icons.Bell className="w-10 h-10 text-slate-700" />
+                              <p className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">No pending friend requests</p>
+                            </div>
                       )}
                     </div>
                   </div>

@@ -6,6 +6,7 @@ import helmet from 'helmet';
 import dotenv from 'dotenv';
 import Matter from 'matter-js';
 import os from 'os';
+import mongoose from 'mongoose';
 import { Room, Player } from '@fumik/shared/types';
 import { ROOM_CODE_LENGTH, INACTIVITY_TIMEOUT } from '@fumik/shared/constants';
 import { gameRegistry } from './games/GameRegistry';
@@ -20,8 +21,19 @@ import { TicTacToeGame } from './games/TicTacToeGame';
 import { MemoryGame } from './games/MemoryGame';
 import { BallGame } from './games/BallGame';
 import { GroqService } from './GroqService';
+import { User } from './models/User';
 
 dotenv.config();
+
+// --- MongoDB Connection ---
+const MONGO_URI = process.env.MONGODB_URI || '';
+if (MONGO_URI) {
+  mongoose.connect(MONGO_URI)
+    .then(() => console.log('✅ MongoDB Connected!'))
+    .catch(err => console.error('❌ MongoDB Error:', err));
+} else {
+  console.warn('⚠️ No MONGODB_URI set. Social features will use in-memory mode.');
+}
 
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
@@ -88,18 +100,113 @@ io.on('connection', (socket) => {
     socket.emit('pong');
   });
 
-  socket.on('social:login', ({ userId, name, avatar }) => {
-    console.log(`👤 Social Login: ${name} (${userId})`);
-    onlineUsers.set(userId, { socketId: socket.id, name, avatar });
-    io.emit('social:online-count', onlineUsers.size);
+  // --- SOCIAL: Register / Login by username + device token ---
+  socket.on('social:register', async ({ username, token, avatar }) => {
+    try {
+      let user = await User.findOne({ token });
+      if (user) {
+        // Existing user: update avatar and online status
+        user.avatar = avatar;
+        user.isOnline = true;
+        user.lastSeen = new Date();
+        await user.save();
+        onlineUsers.set(user._id.toString(), { socketId: socket.id, name: user.username, avatar: user.avatar });
+        io.emit('social:online-count', onlineUsers.size);
+        socket.emit('social:registered', { ok: true, username: user.username, userId: user._id.toString() });
+      } else {
+        // New user: check if username is taken
+        const taken = await User.findOne({ username: username.toLowerCase().trim() });
+        if (taken) {
+          return socket.emit('social:registered', { ok: false, error: `"${username}" is already taken. Pick a different name!` });
+        }
+        user = new User({ username: username.toLowerCase().trim(), token, avatar, isOnline: true });
+        await user.save();
+        onlineUsers.set(user._id.toString(), { socketId: socket.id, name: user.username, avatar });
+        io.emit('social:online-count', onlineUsers.size);
+        socket.emit('social:registered', { ok: true, username: user.username, userId: user._id.toString() });
+      }
+    } catch (err: any) {
+      socket.emit('social:registered', { ok: false, error: 'Server error. Try again.' });
+    }
   });
 
-  socket.on('social:get-online', () => {
-    const users = Array.from(onlineUsers.entries()).map(([userId, data]) => ({
-      userId,
-      ...data
-    }));
-    socket.emit('social:online-list', users);
+  socket.on('social:get-online', async () => {
+    try {
+      const users = Array.from(onlineUsers.entries()).map(([userId, data]) => ({ userId, ...data }));
+      socket.emit('social:online-list', users);
+    } catch (err) {}
+  });
+
+  socket.on('social:search', async ({ query }) => {
+    try {
+      const results = await User.find({
+        username: { $regex: query, $options: 'i' }
+      }).limit(10).select('_id username avatar');
+      socket.emit('social:search-results', results.map(u => ({
+        userId: u._id.toString(),
+        name: u.username,
+        avatar: u.avatar,
+        isOnline: onlineUsers.has(u._id.toString())
+      })));
+    } catch (err) {
+      socket.emit('social:search-results', []);
+    }
+  });
+
+  socket.on('social:friend-request', async ({ fromUserId, toUserId }) => {
+    try {
+      const toUser = await User.findById(toUserId);
+      if (!toUser) return;
+      const alreadySent = toUser.friendRequests.map(id => id.toString()).includes(fromUserId);
+      if (!alreadySent) {
+        toUser.friendRequests.push(new mongoose.Types.ObjectId(fromUserId));
+        await toUser.save();
+      }
+      const targetSocket = onlineUsers.get(toUserId);
+      const fromUser = await User.findById(fromUserId).select('username avatar');
+      if (targetSocket && fromUser) {
+        io.to(targetSocket.socketId).emit('social:friend-request', {
+          fromUserId,
+          fromName: fromUser.username,
+          fromAvatar: fromUser.avatar
+        });
+      }
+    } catch (err) {}
+  });
+
+  socket.on('social:accept-friend', async ({ myUserId, fromUserId }) => {
+    try {
+      const me = await User.findById(myUserId);
+      const them = await User.findById(fromUserId);
+      if (!me || !them) return;
+      // Add to each other's friends list and remove from pending
+      if (!me.friends.map(id => id.toString()).includes(fromUserId)) {
+        me.friends.push(new mongoose.Types.ObjectId(fromUserId));
+      }
+      me.friendRequests = me.friendRequests.filter(id => id.toString() !== fromUserId) as any;
+      if (!them.friends.map(id => id.toString()).includes(myUserId)) {
+        them.friends.push(new mongoose.Types.ObjectId(myUserId));
+      }
+      await me.save();
+      await them.save();
+      socket.emit('social:friends-updated', { message: `You and ${them.username} are now friends!` });
+    } catch (err) {}
+  });
+
+  socket.on('social:get-friends', async ({ userId }) => {
+    try {
+      const user = await User.findById(userId).populate('friends', '_id username avatar').populate('friendRequests', '_id username avatar');
+      if (!user) return;
+      socket.emit('social:friends-list', {
+        friends: (user.friends as any[]).map((f: any) => ({
+          userId: f._id.toString(), name: f.username, avatar: f.avatar,
+          isOnline: onlineUsers.has(f._id.toString())
+        })),
+        requests: (user.friendRequests as any[]).map((f: any) => ({
+          userId: f._id.toString(), name: f.username, avatar: f.avatar
+        }))
+      });
+    } catch (err) {}
   });
 
   socket.on('social:invite', ({ toUserId, fromName, roomCode }) => {
