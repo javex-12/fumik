@@ -57,6 +57,18 @@ export default function LandingPage() {
     localStorage.setItem('fumik_user_avatar', selectedAvatar);
   };
 
+  const handleCreateRoom = () => {
+    if (!isConnected) return;
+    setIsLoading(true);
+    createRoom(name, selectedAvatar);
+  };
+
+  const handleJoinRoom = () => {
+    if (!roomCode || roomCode.length !== 5) return;
+    setIsLoading(true);
+    joinRoom(roomCode, name, selectedAvatar);
+  };
+
   if (!isMounted) return null;
 
   const isFriend = (uid: string) => friends.some(f => f.userId === uid);
