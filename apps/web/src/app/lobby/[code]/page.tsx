@@ -30,7 +30,7 @@ const DynamicIcon = ({ name, className }: { name: string; className?: string }) 
 
 export default function LobbyPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
-  const { room, socket, isConnected, error, userId } = useSocket();
+  const { room, socket, isConnected, error, userId, leaveRoom } = useSocket();
   const [isMounted, setIsMounted] = useState(false);
   const [showGameList, setShowGameList] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
