@@ -27,13 +27,17 @@ dotenv.config();
 
 // --- MongoDB Connection ---
 const MONGO_URI = process.env.MONGODB_URI || '';
+mongoose.set('bufferCommands', false);
 if (MONGO_URI) {
   mongoose.connect(MONGO_URI)
     .then(() => console.log('✅ MongoDB Connected!'))
-    .catch(err => console.error('❌ MongoDB Error:', err));
+    .catch(err => console.error('❌ MongoDB Error: Connection failed. Using local in-memory fallback.'));
 } else {
   console.warn('⚠️ No MONGODB_URI set. Social features will use in-memory mode.');
 }
+
+const inMemoryUsers: Map<string, any> = new Map();
+const isMongoConnected = () => mongoose.connection.readyState === 1;
 
 function getLocalIP() {
   const interfaces = os.networkInterfaces();
@@ -75,6 +79,15 @@ const io = new Server(httpServer, {
 
 const rooms: Map<string, Room> = new Map();
 const onlineUsers: Map<string, { socketId: string, name: string, avatar: string }> = new Map();
+let totalConnections = 0;
+
+// Broadcast full list + count to ALL clients so everyone's UI updates in real-time
+function broadcastOnlineList() {
+  const list = Array.from(onlineUsers.entries()).map(([userId, data]) => ({ userId, ...data }));
+  io.emit('social:online-count', list.length);
+  io.emit('social:online-list', list);
+  io.emit('social:total-connections', totalConnections);
+}
 
 function generateRoomCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -94,7 +107,9 @@ setInterval(() => {
 }, 60000);
 
 io.on('connection', (socket) => {
-  console.log(`🔌 New Connection: ${socket.id}`);
+  totalConnections++;
+  console.log(`🔌 New Connection: ${socket.id} (Total: ${totalConnections})`);
+  broadcastOnlineList();
 
   socket.on('ping', () => {
     socket.emit('pong');
@@ -103,6 +118,29 @@ io.on('connection', (socket) => {
   // --- SOCIAL: Register / Login by username + device token ---
   socket.on('social:register', async ({ username, token, avatar }) => {
     try {
+      if (!isMongoConnected()) {
+        let user = Array.from(inMemoryUsers.values()).find(u => u.token === token);
+        if (user) {
+          user.avatar = avatar;
+          user.isOnline = true;
+          onlineUsers.set(user._id, { socketId: socket.id, name: user.username, avatar: user.avatar });
+          broadcastOnlineList();
+          socket.emit('social:registered', { ok: true, username: user.username, userId: user._id });
+        } else {
+          const taken = Array.from(inMemoryUsers.values()).find(u => u.username === username.toLowerCase().trim());
+          if (taken) {
+            return socket.emit('social:registered', { ok: false, error: `"${username}" is already taken. Pick a different name!` });
+          }
+          const mockId = 'mem_' + Math.random().toString(36).substr(2, 9);
+          const newUser = { _id: mockId, username: username.toLowerCase().trim(), token, avatar, isOnline: true, friends: [], friendRequests: [] };
+          inMemoryUsers.set(mockId, newUser);
+          onlineUsers.set(mockId, { socketId: socket.id, name: newUser.username, avatar });
+          broadcastOnlineList();
+          socket.emit('social:registered', { ok: true, username: newUser.username, userId: mockId });
+        }
+        return;
+      }
+
       let user = await User.findOne({ token });
       if (user) {
         // Existing user: update avatar and online status
@@ -111,7 +149,7 @@ io.on('connection', (socket) => {
         user.lastSeen = new Date();
         await user.save();
         onlineUsers.set(user._id.toString(), { socketId: socket.id, name: user.username, avatar: user.avatar });
-        io.emit('social:online-count', onlineUsers.size);
+        broadcastOnlineList();
         socket.emit('social:registered', { ok: true, username: user.username, userId: user._id.toString() });
       } else {
         // New user: check if username is taken
@@ -122,7 +160,7 @@ io.on('connection', (socket) => {
         user = new User({ username: username.toLowerCase().trim(), token, avatar, isOnline: true });
         await user.save();
         onlineUsers.set(user._id.toString(), { socketId: socket.id, name: user.username, avatar });
-        io.emit('social:online-count', onlineUsers.size);
+        broadcastOnlineList();
         socket.emit('social:registered', { ok: true, username: user.username, userId: user._id.toString() });
       }
     } catch (err: any) {
@@ -139,6 +177,19 @@ io.on('connection', (socket) => {
 
   socket.on('social:search', async ({ query }) => {
     try {
+      if (!isMongoConnected()) {
+        const results = Array.from(inMemoryUsers.values())
+          .filter(u => u.username.toLowerCase().includes(query.toLowerCase().trim()))
+          .slice(0, 10);
+        socket.emit('social:search-results', results.map(u => ({
+          userId: u._id,
+          name: u.username,
+          avatar: u.avatar,
+          isOnline: onlineUsers.has(u._id)
+        })));
+        return;
+      }
+
       const results = await User.find({
         username: { $regex: query, $options: 'i' }
       }).limit(10).select('_id username avatar');
@@ -155,6 +206,24 @@ io.on('connection', (socket) => {
 
   socket.on('social:friend-request', async ({ fromUserId, toUserId }) => {
     try {
+      if (!isMongoConnected()) {
+        const toUser = inMemoryUsers.get(toUserId);
+        const fromUser = inMemoryUsers.get(fromUserId);
+        if (!toUser || !fromUser) return;
+        if (!toUser.friendRequests.includes(fromUserId)) {
+          toUser.friendRequests.push(fromUserId);
+        }
+        const targetSocket = onlineUsers.get(toUserId);
+        if (targetSocket) {
+          io.to(targetSocket.socketId).emit('social:friend-request', {
+            fromUserId,
+            fromName: fromUser.username,
+            fromAvatar: fromUser.avatar
+          });
+        }
+        return;
+      }
+
       const toUser = await User.findById(toUserId);
       if (!toUser) return;
       const alreadySent = toUser.friendRequests.map(id => id.toString()).includes(fromUserId);
@@ -176,6 +245,21 @@ io.on('connection', (socket) => {
 
   socket.on('social:accept-friend', async ({ myUserId, fromUserId }) => {
     try {
+      if (!isMongoConnected()) {
+        const me = inMemoryUsers.get(myUserId);
+        const them = inMemoryUsers.get(fromUserId);
+        if (!me || !them) return;
+        if (!me.friends.includes(fromUserId)) {
+          me.friends.push(fromUserId);
+        }
+        me.friendRequests = me.friendRequests.filter((id: string) => id !== fromUserId);
+        if (!them.friends.includes(myUserId)) {
+          them.friends.push(myUserId);
+        }
+        socket.emit('social:friends-updated', { message: `You and ${them.username} are now friends!` });
+        return;
+      }
+
       const me = await User.findById(myUserId);
       const them = await User.findById(fromUserId);
       if (!me || !them) return;
@@ -195,6 +279,22 @@ io.on('connection', (socket) => {
 
   socket.on('social:get-friends', async ({ userId }) => {
     try {
+      if (!isMongoConnected()) {
+        const user = inMemoryUsers.get(userId);
+        if (!user) return;
+        socket.emit('social:friends-list', {
+          friends: user.friends.map((friendId: string) => {
+            const f = inMemoryUsers.get(friendId);
+            return f ? { userId: f._id, name: f.username, avatar: f.avatar, isOnline: onlineUsers.has(f._id) } : null;
+          }).filter(Boolean),
+          requests: user.friendRequests.map((reqId: string) => {
+            const f = inMemoryUsers.get(reqId);
+            return f ? { userId: f._id, name: f.username, avatar: f.avatar } : null;
+          }).filter(Boolean)
+        });
+        return;
+      }
+
       const user = await User.findById(userId).populate('friends', '_id username avatar').populate('friendRequests', '_id username avatar');
       if (!user) return;
       socket.emit('social:friends-list', {
@@ -359,14 +459,15 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`🔌 Disconnected: ${socket.id}`);
+    totalConnections--;
+    console.log(`🔌 Disconnected: ${socket.id} (Total: ${totalConnections})`);
     
     onlineUsers.forEach((data, userId) => {
       if (data.socketId === socket.id) {
         onlineUsers.delete(userId);
       }
     });
-    io.emit('social:online-count', onlineUsers.size);
+    broadcastOnlineList();
 
     rooms.forEach((room, code) => {
       const playerIndex = room.players.findIndex((p) => p.id === socket.id);

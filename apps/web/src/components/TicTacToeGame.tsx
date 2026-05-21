@@ -35,14 +35,14 @@ export default function TicTacToeGame() {
       </div>
 
       <div className="relative">
-        <div className="grid grid-cols-3 gap-4 bg-slate-900/40 p-6 rounded-[2.5rem] border border-slate-800 backdrop-blur-md shadow-2xl">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 bg-slate-900/40 p-4 sm:p-6 rounded-[2rem] sm:rounded-[2.5rem] border border-slate-800 backdrop-blur-md shadow-2xl">
           {board.map((cell, i) => (
             <button 
               key={i} 
               onClick={() => socket?.emit('game:input', { code: room?.code, data: { index: i } })}
               disabled={!!cell || !!winner || myTeam !== turn}
               className={clsx(
-                "w-24 h-24 md:w-28 md:h-28 text-5xl font-black rounded-3xl border-2 transition-all flex items-center justify-center relative group overflow-hidden",
+                "w-20 h-20 sm:w-24 sm:h-24 md:w-28 md:h-28 text-4xl sm:text-5xl font-black rounded-2xl sm:rounded-3xl border-2 transition-all flex items-center justify-center relative group overflow-hidden",
                 cell === 'X' ? "bg-orange-500/10 border-orange-500/30 text-orange-500 shadow-inner" : 
                 cell === 'O' ? "bg-slate-800/50 border-slate-700 text-white shadow-inner" : 
                 "bg-slate-950 border-slate-800 hover:border-orange-500/50 hover:bg-slate-900"

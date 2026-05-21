@@ -119,10 +119,10 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   const gameView = renderGame();
   if (gameView) return (
-    <>
-      <div className="min-h-screen bg-white">{gameView}</div>
+    <div className="h-screen w-screen overflow-hidden bg-white relative">
+      {gameView}
       <CommunicationSuite />
-    </>
+    </div>
   );
 
   const me = room.players.find(p => p.userId === userId);
@@ -137,28 +137,28 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-6 md:p-12 font-body relative overflow-x-hidden">
+    <main className="min-h-screen bg-slate-950 text-white p-4 sm:p-6 lg:p-12 font-body relative overflow-x-hidden">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(249,115,22,0.05),transparent_50%)]" />
       <CommunicationSuite />
       <ProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
       
       <div className="max-w-7xl mx-auto space-y-12 relative z-10">
-        <header className="flex flex-col md:flex-row justify-between items-center gap-8 bg-slate-900/40 backdrop-blur-xl p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
+        <header className="flex flex-col md:flex-row justify-between items-center gap-6 lg:gap-8 bg-slate-900/40 backdrop-blur-xl p-5 sm:p-8 rounded-3xl sm:rounded-[2.5rem] border border-slate-800 shadow-2xl">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
             <button onClick={() => window.location.href = '/'} className="p-3 bg-slate-950 border border-slate-800 rounded-full hover:border-orange-500 transition-colors shadow-lg active:scale-95 group" title="Leave Room">
               <Icons.ArrowLeft className="w-6 h-6 text-slate-400 group-hover:text-orange-500 transition-colors" />
             </button>
             <div className="space-y-1">
               <span className="text-[10px] font-black text-orange-500 uppercase tracking-[0.4em] block">Mission Control</span>
-              <h1 className="text-4xl md:text-5xl font-black tracking-tighter italic text-white leading-none">LOBBY</h1>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black tracking-tighter italic text-white leading-none">LOBBY</h1>
             </div>
             <div className="h-12 w-px bg-slate-800 hidden md:block" />
             <div className="space-y-1">
               <span className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] block">Access Key</span>
               <div className="flex items-center gap-2">
-                <div className="text-3xl md:text-4xl font-black text-white tracking-widest font-mono bg-slate-950 px-6 py-2 rounded-2xl border border-slate-800">{room.code}</div>
-                <button onClick={() => { navigator.clipboard.writeText(room.code); alert('Code copied!'); }} className="p-3 md:p-4 bg-slate-950 border border-slate-800 rounded-2xl hover:border-orange-500 transition-colors active:scale-95 group" title="Copy Code">
-                  <Icons.Copy className="w-5 h-5 text-slate-400 group-hover:text-orange-500 transition-colors" />
+                <div className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-widest font-mono bg-slate-950 px-4 sm:px-6 py-2 rounded-2xl border border-slate-800">{room.code}</div>
+                <button onClick={() => { navigator.clipboard.writeText(room.code); alert('Code copied!'); }} className="p-2.5 sm:p-3 md:p-4 bg-slate-950 border border-slate-800 rounded-2xl hover:border-orange-500 transition-colors active:scale-95 group" title="Copy Code">
+                  <Icons.Copy className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-orange-500 transition-colors" />
                 </button>
               </div>
             </div>
@@ -179,37 +179,37 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           </button>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-12">
-          <div className="lg:col-span-8 space-y-8">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12">
+          <div className="lg:col-span-8 space-y-6 lg:space-y-8">
             <div className="flex items-center justify-between px-4">
               <h3 className="text-2xl font-black italic uppercase tracking-tight flex items-center gap-3">
                 <Icons.Users className="w-6 h-6 text-orange-500" /> Crew <span className="text-slate-700 text-lg">/ {room.players.length}</span>
               </h3>
             </div>
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
               {room.players.map((player) => (
-                <div key={player.userId} className={clsx("p-8 rounded-[2rem] border-2 flex items-center gap-6 transition-all relative overflow-hidden group shadow-2xl", player.isConnected ? "bg-slate-900/60 border-slate-800 hover:border-orange-500/30" : "bg-slate-950/40 border-transparent opacity-30 grayscale")}>
+                <div key={player.userId} className={clsx("p-4 sm:p-6 lg:p-8 rounded-2xl sm:rounded-[2rem] border-2 flex items-center gap-4 sm:gap-6 transition-all relative overflow-hidden group shadow-2xl", player.isConnected ? "bg-slate-900/60 border-slate-800 hover:border-orange-500/30" : "bg-slate-950/40 border-transparent opacity-30 grayscale")}>
                   <div className="relative">
-                    <div className={clsx("w-16 h-16 rounded-2xl overflow-hidden border-2 flex-shrink-0 relative z-10", player.isHost ? "border-orange-500 shadow-lg shadow-orange-500/20" : "border-slate-700")}>
+                    <div className={clsx("w-12 h-12 sm:w-16 sm:h-16 rounded-xl sm:rounded-2xl overflow-hidden border-2 flex-shrink-0 relative z-10", player.isHost ? "border-orange-500 shadow-lg shadow-orange-500/20" : "border-slate-700")}>
                       <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player.avatar || 'default'}`} alt={player.name} className="w-full h-full object-cover" />
                     </div>
                     {player.isHost && (
-                      <div className="absolute -top-3 -right-3 bg-orange-500 text-white p-1.5 rounded-lg z-20 shadow-lg rotate-12">
-                        <Icons.Crown className="w-4 h-4" />
+                      <div className="absolute -top-2 -right-2 sm:-top-3 sm:-right-3 bg-orange-500 text-white p-1 sm:p-1.5 rounded-lg z-20 shadow-lg rotate-12">
+                        <Icons.Crown className="w-3 h-3 sm:w-4 sm:h-4" />
                       </div>
                     )}
                   </div>
                   
                   <div className="flex-1">
-                    <div className="font-black text-white text-xl uppercase tracking-tight flex items-center gap-2">
+                    <div className="font-black text-white text-base sm:text-lg md:text-xl uppercase tracking-tight flex items-center gap-2">
                       {player.name}
-                      {player.userId === userId && <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-bold">YOU</span>}
+                      {player.userId === userId && <span className="text-[8px] sm:text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-md font-bold">YOU</span>}
                     </div>
-                    <div className="flex items-center gap-3 mt-1">
-                       <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Rank: {getRankTitle(player.score)}</span>
-                       <div className="w-1.5 h-1.5 rounded-full bg-slate-800" />
-                       <span className="text-[10px] font-black text-orange-500 uppercase tracking-widest">{player.score} PTS</span>
+                    <div className="flex items-center gap-2 sm:gap-3 mt-1">
+                       <span className="text-[8px] sm:text-[10px] font-black text-slate-500 uppercase tracking-widest">Rank: {getRankTitle(player.score)}</span>
+                       <div className="w-1 h-1 sm:w-1.5 sm:h-1.5 rounded-full bg-slate-800" />
+                       <span className="text-[8px] sm:text-[10px] font-black text-orange-500 uppercase tracking-widest">{player.score} PTS</span>
                     </div>
                   </div>
                   {player.isConnected && (
@@ -224,7 +224,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           </div>
 
           <div className="lg:col-span-4 space-y-8">
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-[3rem] border border-slate-800 p-10 shadow-2xl space-y-10 relative overflow-hidden">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-3xl sm:rounded-[3rem] border border-slate-800 p-6 sm:p-10 shadow-2xl space-y-6 sm:space-y-10 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 blur-[60px] rounded-full" />
               
               <div className="text-center space-y-4">
@@ -243,7 +243,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                 <div className="space-y-4">
                   <button 
                     onClick={() => setShowGameList(!showGameList)} 
-                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-6 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-3"
+                    className="w-full bg-orange-600 hover:bg-orange-500 text-white py-4 sm:py-6 rounded-2xl sm:rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-3"
                   >
                     <Icons.PlayCircle className="w-5 h-5" />
                     Select Mission

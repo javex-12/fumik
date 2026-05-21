@@ -33,17 +33,17 @@ export default function MathGame() {
         key={question}
         initial={{ scale: 0.9, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="text-8xl md:text-9xl font-black text-slate-900 mb-16 tracking-tighter"
+        className="text-6xl md:text-9xl font-black text-slate-900 mb-12 md:mb-16 tracking-tighter"
       >
         {question}
       </motion.div>
-      <form onSubmit={submit} className="w-full max-w-md">
+      <form onSubmit={submit} className="w-full max-w-sm md:max-w-md">
         <input 
           type="number" 
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
           autoFocus
-          className="w-full bg-slate-50 border-4 border-slate-100 focus:border-primary p-8 rounded-[2rem] outline-none text-slate-900 transition-all font-black text-6xl text-center placeholder:text-slate-200"
+          className="w-full bg-slate-50 border-4 border-slate-100 focus:border-primary p-6 md:p-8 rounded-[1.5rem] md:rounded-[2rem] outline-none text-slate-900 transition-all font-black text-4xl md:text-6xl text-center placeholder:text-slate-200"
           placeholder="?"
         />
         <button type="submit" className="hidden">Submit</button>

@@ -74,7 +74,7 @@ export default function ClickerGame() {
         <motion.div 
           initial={{ scale: 0 }}
           animate={{ scale: 1 }}
-          className="text-[12rem] font-black italic text-orange-500 tracking-tighter drop-shadow-2xl relative z-10"
+          className="text-[8rem] sm:text-[12rem] font-black italic text-orange-500 tracking-tighter drop-shadow-2xl relative z-10"
         >
           {countdown}
         </motion.div>

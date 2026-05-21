@@ -23,97 +23,57 @@ const CommunicationSuite = dynamic(() => import("@/components/CommunicationSuite
 type Step = 'splash' | 'onboarding' | 'dashboard';
 
 export default function LandingPage() {
-  const { createRoom, joinRoom, error, isConnected, userId, socket } = useSocket();
+  const { 
+    createRoom, joinRoom, error, isConnected, userId, socket,
+    onlineUsers, onlineCount, friends, friendRequests, searchResults,
+    registerSocial, searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, sendInvite,
+    socialUserId, isRegistering
+  } = useSocket();
+
   const [step, setStep] = useState<Step>('splash');
   const [isMounted, setIsMounted] = useState(false);
   const [name, setName] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState(AVATARS[0]);
   const [roomCode, setRoomCode] = useState("");
-  const [isJoining, setIsJoining] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
-  const [friends, setFriends] = useState<any[]>([]);
-  const [friendRequests, setFriendRequests] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<any[]>([]);
   const [socialTab, setSocialTab] = useState<'online'|'friends'|'requests'>('online');
-  const [socialUserId, setSocialUserId] = useState<string | null>(null);
   const [nameError, setNameError] = useState("");
-  const [isRegistering, setIsRegistering] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
     const savedName = localStorage.getItem('fumik_user_name');
     const savedAvatar = localStorage.getItem('fumik_user_avatar');
-    const savedSocialId = localStorage.getItem('fumik_social_id');
     if (savedName) setName(savedName);
     if (savedAvatar) setSelectedAvatar(savedAvatar);
-    if (savedSocialId) setSocialUserId(savedSocialId);
   }, []);
 
   useEffect(() => {
     if (!socket) return;
 
-    const handleRegistered = ({ ok, username, userId: uid, error: err }: any) => {
-      setIsRegistering(false);
+    const handleRegistered = ({ ok, error: err }: any) => {
       if (!ok) { setNameError(err); return; }
       setNameError("");
-      const finalName = username;
-      setName(finalName);
-      setSocialUserId(uid);
-      localStorage.setItem('fumik_user_name', finalName);
-      localStorage.setItem('fumik_user_avatar', selectedAvatar);
-      localStorage.setItem('fumik_social_id', uid);
-      socket.emit('social:get-online');
-      socket.emit('social:get-friends', { userId: uid });
       setStep('dashboard');
     };
 
-    const handleOnlineList = (list: any[]) => setOnlineUsers(list);
-    const handleFriendsList = ({ friends: f, requests: r }: any) => { setFriends(f); setFriendRequests(r); };
-    const handleSearchResults = (results: any[]) => setSearchResults(results);
-    const handleFriendRequest = ({ fromUserId, fromName, fromAvatar }: any) => {
-      setFriendRequests(prev => [...prev.filter(r => r.userId !== fromUserId), { userId: fromUserId, name: fromName, avatar: fromAvatar }]);
-    };
-    const handleInvite = ({ fromName, roomCode: rc }: any) => {
-      if (confirm(`🎮 ${fromName} invited you! Join their game?`)) joinRoom(rc, name, selectedAvatar);
-    };
-
     socket.on('social:registered', handleRegistered);
-    socket.on('social:online-list', handleOnlineList);
-    socket.on('social:friends-list', handleFriendsList);
-    socket.on('social:search-results', handleSearchResults);
-    socket.on('social:friend-request', handleFriendRequest);
-    socket.on('social:invite', handleInvite);
-
-    if (isConnected && socialUserId) {
-      socket.emit('social:get-online');
-      socket.emit('social:get-friends', { userId: socialUserId });
-    }
-
     return () => {
       socket.off('social:registered', handleRegistered);
-      socket.off('social:online-list', handleOnlineList);
-      socket.off('social:friends-list', handleFriendsList);
-      socket.off('social:search-results', handleSearchResults);
-      socket.off('social:friend-request', handleFriendRequest);
-      socket.off('social:invite', handleInvite);
     };
-  }, [socket, isConnected, socialUserId]);
+  }, [socket]);
 
   const handleSearch = (q: string) => {
     setSearchQuery(q);
-    if (q.length >= 2) socket?.emit('social:search', { query: q });
-    else setSearchResults([]);
+    if (q.length >= 2) searchUsers(q);
   };
 
   const handleFinishOnboarding = () => {
     if (!name.trim()) return setNameError('Enter your legend name!');
     if (!isConnected) return setNameError('Not connected to server yet. Wait a moment.');
-    setIsRegistering(true);
     setNameError("");
-    const token = localStorage.getItem('fumik_user_id') || userId || '';
-    socket?.emit('social:register', { username: name.trim(), token, avatar: selectedAvatar });
+    registerSocial(name, selectedAvatar);
+    localStorage.setItem('fumik_user_avatar', selectedAvatar);
   };
 
   const handleCreateRoom = () => {
@@ -128,22 +88,8 @@ export default function LandingPage() {
     joinRoom(roomCode, name, selectedAvatar);
   };
 
-  const sendFriendRequest = (toUserId: string) => {
-    if (!socialUserId) return;
-    socket?.emit('social:friend-request', { fromUserId: socialUserId, toUserId });
-    alert('Friend request sent!');
-  };
-
-  const acceptFriendRequest = (fromUserId: string) => {
-    if (!socialUserId) return;
-    socket?.emit('social:accept-friend', { myUserId: socialUserId, fromUserId });
-    setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId));
-    socket?.emit('social:get-friends', { userId: socialUserId });
-  };
-
   const inviteToRoom = (toUserId: string, toName: string) => {
-    socket?.emit('social:invite', { toUserId, fromName: name, roomCode: 'PENDING' });
-    handleCreateRoom();
+    sendInvite(toUserId, name);
   };
 
   if (!isMounted) return null;
@@ -244,16 +190,16 @@ export default function LandingPage() {
             key="dashboard"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="min-h-screen bg-slate-950 flex flex-col p-6 md:p-12"
+            className="min-h-screen bg-slate-950 flex flex-col p-4 sm:p-6 lg:p-12"
           >
-            <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col gap-12">
-              <header className="flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
-                    <Icons.Gamepad2 className="w-7 h-7 text-white" />
+            <div className="max-w-7xl mx-auto w-full flex-1 flex flex-col gap-6 md:gap-8 lg:gap-12">
+              <header className="flex justify-between items-center gap-3">
+                <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+                    <Icons.Gamepad2 className="w-5 h-5 sm:w-7 sm:h-7 text-white" />
                   </div>
                   <div>
-                    <h1 className="text-2xl font-black italic tracking-tight">FUMIK OS</h1>
+                    <h1 className="text-xl sm:text-2xl font-black italic tracking-tight">FUMIK OS</h1>
                     <div className="flex items-center gap-2 text-[8px] font-black text-orange-500 uppercase tracking-[0.3em]">
                       <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
                       Server Linked
@@ -263,57 +209,57 @@ export default function LandingPage() {
 
                 <button 
                   onClick={() => setStep('onboarding')}
-                  className="flex items-center gap-4 bg-slate-900/50 hover:bg-slate-800 p-2 pr-6 rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer text-left"
+                  className="flex items-center gap-2 sm:gap-4 bg-slate-900/50 hover:bg-slate-800 p-1.5 sm:p-2 pr-3 sm:pr-6 rounded-xl sm:rounded-2xl border border-slate-800 hover:border-orange-500/50 transition-all cursor-pointer text-left min-w-0"
                 >
-                  <div className="w-10 h-10 rounded-xl overflow-hidden border border-slate-700 bg-slate-800 group-hover:border-orange-500 transition-colors">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl overflow-hidden border border-slate-700 bg-slate-800 flex-shrink-0">
                     <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedAvatar}`} />
                   </div>
-                  <div>
-                    <div className="text-xs font-black uppercase tracking-tight flex items-center gap-2">
-                      {name} <Icons.Edit2 className="w-3 h-3 text-slate-500" />
+                  <div className="min-w-0">
+                    <div className="text-xs font-black uppercase tracking-tight flex items-center gap-1 sm:gap-2 truncate max-w-[80px] sm:max-w-[140px]">
+                      {name} <Icons.Edit2 className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-500 flex-shrink-0" />
                     </div>
-                    <div className="text-[8px] font-bold text-slate-500 uppercase tracking-widest">Level 1 Elite</div>
+                    <div className="text-[7px] sm:text-[8px] font-bold text-slate-500 uppercase tracking-widest">Level 1 Elite</div>
                   </div>
                 </button>
               </header>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 flex-1">
-                <div className="lg:col-span-8 space-y-12">
-                  <section className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 flex-1">
+                <div className="lg:col-span-8 space-y-8 lg:space-y-12">
+                  <section className="space-y-4 md:space-y-6">
                     <div className="flex justify-between items-end">
                       <div className="space-y-1">
-                        <h3 className="text-3xl font-black italic tracking-tight uppercase">Quick Actions</h3>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Launch or Join a session</p>
+                        <h3 className="text-2xl sm:text-3xl font-black italic tracking-tight uppercase">Quick Actions</h3>
+                        <p className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-widest">Launch or Join a session</p>
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                       <button 
                         onClick={handleCreateRoom}
                         disabled={isLoading}
-                        className="group relative p-8 rounded-[2.5rem] bg-gradient-to-br from-orange-500 to-orange-600 text-left overflow-hidden transition-all hover:scale-[1.02] active:scale-95 shadow-2xl shadow-orange-500/20"
+                        className="group relative p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] bg-gradient-to-br from-orange-500 to-orange-600 text-left overflow-hidden transition-all hover:scale-[1.01] active:scale-95 shadow-2xl shadow-orange-500/20"
                       >
                         <div className="relative z-10 space-y-4">
-                          <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
-                            <Icons.PlusCircle className="w-8 h-8 text-white" />
+                          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center">
+                            <Icons.PlusCircle className="w-6 sm:w-8 sm:h-8 text-white" />
                           </div>
                           <div>
-                            <div className="text-2xl font-black text-white italic">CREATE ROOM</div>
-                            <div className="text-orange-100/60 text-[10px] font-black uppercase tracking-widest">Host a new game party</div>
+                            <div className="text-xl sm:text-2xl font-black text-white italic">CREATE ROOM</div>
+                            <div className="text-orange-100/60 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Host a new game party</div>
                           </div>
                         </div>
-                        <Icons.ArrowRight className="absolute bottom-8 right-8 w-8 h-8 text-white/20 group-hover:text-white/50 transition-all" />
+                        <Icons.ArrowRight className="absolute bottom-6 sm:bottom-8 right-6 sm:right-8 w-6 h-6 sm:w-8 sm:h-8 text-white/20 group-hover:text-white/50 transition-all" />
                       </button>
 
-                      <div className="group relative p-8 rounded-[2.5rem] bg-slate-900 border border-slate-800 text-left overflow-hidden transition-all hover:border-orange-500/50">
-                        <div className="relative z-10 space-y-4">
-                          <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center">
-                            <Icons.Hash className="w-8 h-8 text-orange-500" />
+                      <div className="group relative p-4 sm:p-6 md:p-8 rounded-3xl sm:rounded-[2.5rem] bg-slate-900 border border-slate-800 text-left overflow-hidden transition-all hover:border-orange-500/50">
+                        <div className="relative z-10 space-y-3 sm:space-y-4">
+                          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl bg-slate-800 flex items-center justify-center">
+                            <Icons.Hash className="w-5 sm:w-8 sm:h-8 text-orange-500" />
                           </div>
-                          <div className="space-y-4">
+                          <div className="space-y-2 sm:space-y-4">
                             <div>
-                              <div className="text-2xl font-black text-white italic uppercase">Join Room</div>
-                              <div className="text-slate-500 text-[10px] font-black uppercase tracking-widest">Enter code to join friends</div>
+                              <div className="text-lg sm:text-2xl font-black text-white italic uppercase">Join Room</div>
+                              <div className="text-slate-500 text-[9px] sm:text-[10px] font-black uppercase tracking-widest">Enter code to join friends</div>
                             </div>
                             <div className="flex gap-2">
                               <input 
@@ -322,12 +268,12 @@ export default function LandingPage() {
                                 value={roomCode}
                                 onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                                 placeholder="CODE"
-                                className="flex-1 bg-slate-800/50 border border-slate-700 p-3 rounded-xl outline-none font-bold text-center tracking-[4px] focus:border-orange-500"
+                                className="flex-1 min-w-0 bg-slate-800/50 border border-slate-700 px-2 py-2.5 sm:p-3 rounded-lg sm:rounded-xl outline-none font-bold text-center tracking-[2px] sm:tracking-[4px] focus:border-orange-500 text-sm sm:text-base"
                               />
                               <button 
                                 onClick={handleJoinRoom}
                                 disabled={isLoading || roomCode.length !== 5}
-                                className="px-6 bg-orange-500 text-white rounded-xl font-black text-xs uppercase disabled:opacity-20"
+                                className="px-4 sm:px-6 py-2.5 sm:py-3 bg-orange-500 hover:bg-orange-400 text-white rounded-lg sm:rounded-xl font-black text-xs uppercase disabled:opacity-20 transition-all active:scale-95 shadow-lg shadow-orange-500/20 flex-shrink-0 whitespace-nowrap"
                               >
                                 Go
                               </button>
@@ -341,19 +287,19 @@ export default function LandingPage() {
                   <section className="space-y-6">
                     <div className="flex justify-between items-end">
                       <div className="space-y-1">
-                        <h3 className="text-3xl font-black italic tracking-tight uppercase">Live Games</h3>
-                        <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Discover what's trending</p>
+                        <h3 className="text-2xl sm:text-3xl font-black italic tracking-tight uppercase">Live Games</h3>
+                        <p className="text-slate-500 text-[10px] sm:text-xs font-bold uppercase tracking-widest">Discover what's trending</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
                        {['Brain War', 'Reflex', 'TicTacToe', 'Emoji'].map((game) => (
-                         <div key={game} className="aspect-[4/5] rounded-3xl bg-slate-900 border border-slate-800 p-6 flex flex-col justify-between group hover:border-orange-500/30 transition-all">
-                            <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center">
-                              <Icons.Gamepad className="w-5 h-5 text-slate-400 group-hover:text-orange-500 transition-colors" />
+                         <div key={game} className="aspect-[4/5] rounded-2xl sm:rounded-3xl bg-slate-900 border border-slate-800 p-4 sm:p-6 flex flex-col justify-between group hover:border-orange-500/30 transition-all">
+                            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-slate-800 flex items-center justify-center">
+                              <Icons.Gamepad className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400 group-hover:text-orange-500 transition-colors" />
                             </div>
                             <div>
-                              <div className="text-sm font-black italic uppercase text-slate-300">{game}</div>
-                              <div className="text-[8px] font-bold text-slate-600 uppercase tracking-widest">1.2k Playing</div>
+                              <div className="text-xs sm:text-sm font-black italic uppercase text-slate-300">{game}</div>
+                              <div className="text-[7px] sm:text-[8px] font-bold text-slate-600 uppercase tracking-widest">1.2k Playing</div>
                             </div>
                          </div>
                        ))}
@@ -362,7 +308,7 @@ export default function LandingPage() {
                 </div>
 
                 <div className="lg:col-span-4">
-                  <div className="bg-slate-900 rounded-[2.5rem] border border-slate-800 flex flex-col h-[600px] overflow-hidden">
+                  <div className="bg-slate-900 rounded-3xl lg:rounded-[2.5rem] border border-slate-800 flex flex-col h-[500px] lg:h-[600px] overflow-hidden">
                     {/* Header */}
                     <div className="p-6 border-b border-slate-800 space-y-4">
                       <div className="flex justify-between items-center">
@@ -371,7 +317,7 @@ export default function LandingPage() {
                           <h4 className="font-black italic uppercase tracking-tight">Social Hub</h4>
                         </div>
                         <div className="px-3 py-1 bg-orange-500/10 rounded-full border border-orange-500/20 text-[8px] font-black text-orange-500 uppercase tracking-widest">
-                          {onlineUsers.length} Online
+                          {onlineCount} Online
                         </div>
                       </div>
                       {/* Search */}
@@ -414,7 +360,7 @@ export default function LandingPage() {
                               </div>
                               <div className="text-xs font-black uppercase tracking-tight text-white">{u.name}</div>
                             </div>
-                            <button onClick={() => sendFriendRequest(u.userId)} className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-slate-500 hover:bg-orange-600 hover:text-white transition-all">
+                            <button onClick={() => { sendFriendRequest(u.userId); alert('Friend request sent!'); }} className="w-9 h-9 rounded-xl bg-slate-900 flex items-center justify-center text-slate-500 hover:bg-orange-600 hover:text-white transition-all">
                               <Icons.UserPlus className="w-4 h-4" />
                             </button>
                           </div>
@@ -486,7 +432,7 @@ export default function LandingPage() {
                                 <button onClick={() => acceptFriendRequest(r.userId)} className="w-9 h-9 rounded-xl bg-green-600 flex items-center justify-center text-white hover:bg-green-500 transition-all">
                                   <Icons.Check className="w-4 h-4" />
                                 </button>
-                                <button onClick={() => setFriendRequests(prev => prev.filter(x => x.userId !== r.userId))} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-red-600 hover:text-white transition-all">
+                                <button onClick={() => declineFriendRequest(r.userId)} className="w-9 h-9 rounded-xl bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-red-600 hover:text-white transition-all">
                                   <Icons.X className="w-4 h-4" />
                                 </button>
                               </div>

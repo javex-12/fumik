@@ -90,7 +90,7 @@ export default function ReflexGame() {
           className="relative"
         >
           <div className="absolute inset-0 bg-orange-500 blur-[80px] opacity-20 rounded-full" />
-          <span className="text-[12rem] font-black italic text-orange-500 leading-none relative z-10">{countdown}</span>
+          <span className="text-[8rem] sm:text-[12rem] font-black italic text-orange-500 leading-none relative z-10">{countdown}</span>
         </motion.div>
         <div className="mt-12 space-y-4 text-center z-10">
             <h2 className="text-xl font-black text-slate-500 uppercase tracking-[0.5em]">Syncing Game Logic</h2>

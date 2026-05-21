@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useSocket } from "@/lib/socket";
 import { motion, AnimatePresence } from "framer-motion";
+import clsx from "clsx";
+import * as Icons from "lucide-react";
 
 const EMOJIS = ['🦁', '🐯', '🦊', '🐺', '🦝', '🐸', '🐙', '🦄', '🐲', '🤖', '👾', '🎭', '🧙', '🦸', '🥷', '🎪', '🍕', '🍔', '🍟', '🍦', '🍩', '🍪', '🍎', '🍌', '🚗', '🚕', '🚙', '🏎️', '🏍️', '🚲', '🚀', '🛸', '⚽', '🏀', '🏈', '🎾', '🏓', '🎸', '🎹', '🎮', '🏠', '🌆', '🌋', '🌊', '🌈', '🔥', '⚡', '💣', '❤️', '🌟', '💎', '💰', '💼', '💡', '⏰', '✈️', '🌍', '🗼', '🗿', '🏝️', '🛶', '⛺'];
 
@@ -80,31 +82,57 @@ export default function ScribbleGame() {
   };
 
   if (status === 'starting') {
-    return <div className="h-full flex items-center justify-center text-7xl font-display text-accent1 animate-bounce">SCRIBBLE SMASH!</div>;
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-950 p-12 overflow-hidden relative font-body text-center">
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-500/10 rounded-full blur-[120px]" />
+        <motion.div 
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="space-y-8 relative z-10"
+        >
+          <div className="w-24 h-24 bg-slate-900 border border-slate-800 rounded-3xl mx-auto flex items-center justify-center shadow-2xl">
+            <span className="text-4xl">🎨</span>
+          </div>
+          <h2 className="text-5xl md:text-7xl font-black italic text-orange-500 tracking-tighter animate-bounce uppercase">SCRIBBLE SMASH!</h2>
+          <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-xs">Calibrating Creative Channels...</p>
+        </motion.div>
+      </div>
+    );
   }
 
   if (status === 'gameover') {
-    return <div className="h-full flex items-center justify-center text-7xl font-display text-accent4">GAME OVER!</div>;
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-950 font-body p-12 text-center relative overflow-hidden">
+        <motion.div
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            className="bg-slate-900/40 backdrop-blur-2xl p-16 max-w-2xl w-full border border-slate-800 rounded-[3rem] shadow-2xl z-10 space-y-8"
+        >
+            <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">EXHIBITION ENDED</h2>
+            <div className="h-1 w-24 bg-orange-500 mx-auto rounded-full" />
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Archiving masterpieces...</p>
+        </motion.div>
+      </div>
+    );
   }
 
   return (
-    <div className="h-full flex flex-col md:flex-row p-4 gap-4 overflow-hidden">
+    <div className="h-full flex flex-col lg:flex-row p-4 sm:p-6 gap-4 sm:gap-6 overflow-hidden bg-slate-950 font-body">
       {/* Left: Tools or Stats */}
-      <div className="w-full md:w-64 space-y-4">
-        <div className="neon-card border-accent2 p-4 text-center">
-          <div className="text-xs font-mono uppercase text-secondary">Time Left</div>
-          <div className="text-4xl font-mono text-accent1">{timeLeft}s</div>
+      <div className="w-full lg:w-72 flex lg:flex-col gap-4">
+        <div className="flex-1 lg:flex-none bg-slate-900 border border-slate-800 p-4 sm:p-6 rounded-[2rem] text-center shadow-xl">
+          <div className="text-[10px] font-black uppercase text-slate-500 tracking-widest mb-1">Time Left</div>
+          <div className={clsx("text-4xl font-mono font-black", timeLeft < 10 ? "text-red-500 animate-pulse" : "text-orange-500")}>{timeLeft}s</div>
         </div>
 
         {isDrawer && (
-          <div className="neon-card border-accent3 p-4 flex-1 overflow-y-auto max-h-[400px]">
-            <h4 className="font-display text-xl mb-4 text-accent3">Stamps</h4>
-            <div className="grid grid-cols-4 gap-2">
+          <div className="hidden lg:flex flex-1 flex-col bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] overflow-hidden shadow-xl">
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Stamp Collection</h4>
+            <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-4 gap-2 scrollbar-hide">
               {EMOJIS.map(emoji => (
                 <button 
                   key={emoji} 
-                  onClick={() => {/* will be triggered by canvas click */}} 
-                  className="text-2xl hover:scale-125 transition-transform p-1 bg-white/5 rounded-md"
+                  className="text-2xl hover:scale-125 transition-transform p-2 bg-slate-950 border border-slate-800 rounded-xl hover:border-orange-500/50"
                   onMouseDown={() => (window as any).selectedEmoji = emoji}
                 >
                   {emoji}
@@ -116,17 +144,20 @@ export default function ScribbleGame() {
       </div>
 
       {/* Center: Canvas */}
-      <div className="flex-1 flex flex-col gap-4 relative">
-        <div className="flex justify-between items-center bg-black/40 p-4 rounded-xl border-2 border-white/20">
-          <div className="font-display text-2xl uppercase tracking-widest text-secondary">
-            {isDrawer ? "You are drawing" : "Guess what they're drawing!"}
+      <div className="flex-1 flex flex-col gap-4 sm:gap-6 relative">
+        <header className="flex justify-between items-center bg-slate-900/40 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-2xl">
+          <div className="space-y-1">
+            <div className="text-orange-500 font-black uppercase tracking-[0.4em] text-[8px] sm:text-[10px]">Session Directive</div>
+            <div className="text-lg sm:text-2xl font-black italic text-white uppercase tracking-tight">
+              {isDrawer ? "Drawing Mode" : "Analysis Mode"}
+            </div>
           </div>
           {isDrawer && (
-            <div className="bg-accent1 text-white px-6 py-2 rounded-lg font-display text-3xl shadow-neon1 animate-glow">
+            <div className="bg-orange-600 text-white px-6 sm:px-10 py-2 sm:py-3 rounded-xl sm:rounded-2xl font-black text-xl sm:text-3xl italic shadow-lg shadow-orange-600/20 animate-pulse border-2 border-orange-400">
               {word}
             </div>
           )}
-        </div>
+        </header>
 
         <div 
           ref={canvasRef}
@@ -135,15 +166,17 @@ export default function ScribbleGame() {
               placeEmoji((window as any).selectedEmoji, e);
             }
           }}
-          className="flex-1 bg-white rounded-2xl relative overflow-hidden cursor-crosshair shadow-inner"
+          className="flex-1 bg-white rounded-[2rem] sm:rounded-[3rem] relative overflow-hidden cursor-crosshair shadow-inner border-4 border-slate-900"
         >
+          <div className="absolute inset-0 opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+          
           {canvas.map((item, i) => (
             <motion.div
               key={i}
               initial={{ scale: 0, rotate: -45 }}
               animate={{ scale: 1, rotate: 0 }}
               style={{ position: 'absolute', left: `${item.x}%`, top: `${item.y}%`, transform: 'translate(-50%, -50%)' }}
-              className="text-5xl select-none"
+              className="text-4xl sm:text-6xl select-none"
             >
               {item.data}
             </motion.div>
@@ -155,42 +188,63 @@ export default function ScribbleGame() {
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 exit={{ scale: 1.2, opacity: 0 }}
-                className="absolute inset-0 bg-accent1/20 backdrop-blur-sm flex flex-col items-center justify-center z-50 text-center"
+                className="absolute inset-0 bg-orange-600/90 backdrop-blur-md flex flex-col items-center justify-center z-50 text-center p-8"
               >
-                <div className="text-8xl mb-4 animate-bounce">🎉</div>
-                <h3 className="text-6xl font-display text-white drop-shadow-lg">{winnerInfo.player} GUESSED IT!</h3>
-                <p className="text-4xl font-mono uppercase tracking-widest text-accent2">Word: {winnerInfo.word}</p>
+                <div className="text-8xl mb-6 animate-bounce">🏆</div>
+                <h3 className="text-4xl sm:text-6xl font-black text-white italic uppercase tracking-tighter mb-4">{winnerInfo.player} GUESSED IT!</h3>
+                <p className="text-xl sm:text-3xl font-black text-orange-200 uppercase tracking-widest border-2 border-orange-400/50 px-8 py-3 rounded-2xl">WORD: {winnerInfo.word}</p>
               </motion.div>
             )}
           </AnimatePresence>
         </div>
+        
+        {/* Mobile Emojis */}
+        {isDrawer && (
+          <div className="lg:hidden flex gap-2 overflow-x-auto p-2 bg-slate-900 border border-slate-800 rounded-2xl scrollbar-hide">
+            {EMOJIS.slice(0, 20).map(emoji => (
+                <button 
+                  key={emoji} 
+                  className="text-2xl p-2 bg-slate-950 border border-slate-800 rounded-xl flex-shrink-0"
+                  onMouseDown={() => (window as any).selectedEmoji = emoji}
+                >
+                  {emoji}
+                </button>
+              ))}
+          </div>
+        )}
       </div>
 
       {/* Right: Chat/Guesses */}
-      <div className="w-full md:w-80 flex flex-col gap-4">
-        <div className="neon-card border-accent4 flex-1 flex flex-col overflow-hidden p-4">
-          <h4 className="font-display text-xl mb-2 text-accent4">GUESSES</h4>
-          <div className="flex-1 overflow-y-auto space-y-2 mb-4 scrollbar-hide">
+      <div className="w-full lg:w-80 flex flex-col gap-4 sm:gap-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] flex-1 flex flex-col overflow-hidden p-6 sm:p-8 shadow-2xl relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-3xl rounded-full" />
+          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">Neural Intercepts</h4>
+          <div className="flex-1 overflow-y-auto space-y-3 mb-6 scrollbar-hide relative z-10">
             {messages.map((m, i) => (
               <div 
                 key={i} 
-                className={`p-2 rounded font-mono text-sm ${m.type === 'system' ? 'bg-accent3/20 text-accent3' : 'bg-white/5 text-white'}`}
+                className={clsx(
+                  "p-4 rounded-2xl text-xs font-bold uppercase tracking-tight",
+                  m.type === 'system' ? "bg-green-500/10 text-green-500 border border-green-500/20" : "bg-slate-950 text-slate-400 border border-slate-800"
+                )}
               >
-                {m.type === 'system' ? m.text : `> ${m.text}`}
+                {m.type === 'system' ? m.text : <><span className="text-slate-600 mr-2"> {'>'} </span> {m.text}</>}
               </div>
             ))}
           </div>
           
           {!isDrawer && (
-            <form onSubmit={handleGuess} className="flex gap-2">
+            <form onSubmit={handleGuess} className="flex gap-2 relative z-10">
               <input 
                 type="text"
                 value={guess}
                 onChange={(e) => setGuess(e.target.value)}
-                placeholder="Type your guess..."
-                className="flex-1 bg-[#1A1A1A] border-2 border-accent4/50 focus:border-accent4 p-2 rounded outline-none font-mono"
+                placeholder="Submit guess..."
+                className="flex-1 bg-slate-950 border-2 border-slate-800 focus:border-orange-500 p-4 rounded-xl outline-none font-black text-sm uppercase tracking-tight text-white transition-all"
               />
-              <button type="submit" className="bg-accent4 p-2 rounded">🚀</button>
+              <button type="submit" className="bg-orange-600 hover:bg-orange-500 text-white p-4 rounded-xl shadow-lg shadow-orange-600/20 transition-all active:scale-95">
+                <Icons.Send className="w-5 h-5" />
+              </button>
             </form>
           )}
         </div>
