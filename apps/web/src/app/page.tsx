@@ -36,7 +36,7 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [socialTab, setSocialTab] = useState<'online'|'friends'|'requests'>('online');
   const [nameError, setNameError] = useState("");
-  const [isSocialHubOpen, setIsSocialHubOpen] = useState(false);
+  const [isSocialHubOpen, setIsSocialHubOpen] = useState(false); // Mobile drawer state
 
   useEffect(() => {
     setIsMounted(true);
@@ -61,6 +61,26 @@ export default function LandingPage() {
   const handleSearch = (q: string) => {
     setSearchQuery(q);
     if (q.length >= 2) searchUsers(q);
+  };
+
+  const createNewRoom = () => {
+    if (!isConnected) {
+      addNotification("Neural Link offline. Please check your connection.", "error");
+      return;
+    }
+    createRoom(name, selectedAvatar);
+  };
+
+  const joinExistingRoom = () => {
+    if (!roomCode || roomCode.length !== 5) {
+      addNotification("Invalid Sector Code. Please verify and retry.", "error");
+      return;
+    }
+    if (!isConnected) {
+      addNotification("Neural Link offline. Please check your connection.", "error");
+      return;
+    }
+    joinRoom(roomCode, name, selectedAvatar);
   };
 
   const isFriend = (uid: string) => friends.some(f => f.userId === uid);
@@ -181,7 +201,7 @@ export default function LandingPage() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-start">
                 <div className="lg:col-span-8 space-y-6 lg:space-y-12">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
-                    <button onClick={() => createRoom(name, selectedAvatar)} className="group relative p-6 sm:p-8 rounded-[2rem] bg-orange-600 text-left overflow-hidden shadow-2xl transition-transform active:scale-95">
+                    <button onClick={createNewRoom} className="group relative p-6 sm:p-8 rounded-[2rem] bg-orange-600 text-left overflow-hidden shadow-2xl transition-transform active:scale-95">
                        <div className="relative z-10 space-y-4">
                           <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center"><Icons.Plus className="w-6 h-6 text-white" /></div>
                           <div><div className="text-xl sm:text-2xl font-black text-white italic">HOST WAR</div><div className="text-orange-100/60 text-[8px] sm:text-[10px] font-black uppercase tracking-widest">New Brain War Sector</div></div>
@@ -192,7 +212,7 @@ export default function LandingPage() {
                       <div className="flex items-center gap-3"><Icons.Terminal className="w-5 h-5 text-orange-500" /><div className="text-sm sm:text-base font-black text-white italic uppercase leading-none">Interlink</div></div>
                       <div className="flex items-center gap-2">
                          <input type="text" maxLength={5} value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="CODE" className="flex-1 bg-slate-950 border border-slate-800 p-3 sm:p-4 rounded-xl outline-none font-black text-center tracking-[4px] focus:border-orange-500 text-white text-xs sm:text-sm min-w-0" />
-                         <button onClick={() => joinRoom(roomCode, name, selectedAvatar)} disabled={roomCode.length !== 5} className="p-3 sm:p-4 bg-orange-500 text-white rounded-xl font-black text-[10px] sm:text-xs uppercase shadow-lg shadow-orange-500/20 disabled:opacity-20 shrink-0">GO</button>
+                         <button onClick={joinExistingRoom} disabled={roomCode.length !== 5} className="p-3 sm:p-4 bg-orange-500 text-white rounded-xl font-black text-[10px] sm:text-xs uppercase shadow-lg shadow-orange-500/20 disabled:opacity-20 shrink-0">GO</button>
                       </div>
                     </div>
                   </div>
@@ -205,7 +225,7 @@ export default function LandingPage() {
                      </div>
                      <div className="flex items-end justify-between relative z-10 gap-4 mt-6">
                         <div className="space-y-1"><div className="text-white font-black italic text-sm sm:text-2xl uppercase leading-none">Neural Link Established</div><div className="text-slate-600 text-[6px] sm:text-[8px] font-black uppercase tracking-[0.4em]">Status: Ready for deployment</div></div>
-                        <button onClick={() => createRoom(name, selectedAvatar)} className="bg-white text-black px-4 py-2 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[8px] sm:text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shrink-0 shadow-xl">Engage</button>
+                        <button onClick={createNewRoom} className="bg-white text-black px-4 py-2 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[8px] sm:text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shrink-0 shadow-xl">Engage</button>
                      </div>
                   </div>
                 </div>

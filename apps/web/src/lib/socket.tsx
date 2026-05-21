@@ -22,8 +22,6 @@ interface SocketContextType {
   updateProfile: (name: string, avatar: string) => void;
   error: string | null;
   isConnected: boolean;
-  attemptedUrl: string;
-  setManualUrl: (url: string) => void;
   onlineCount: number;
   onlineUsers: any[];
   friends: any[];
@@ -54,7 +52,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [userId, setUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [attemptedUrl, setAttemptedUrl] = useState('');
   const [onlineCount, setOnlineCount] = useState(0);
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const [friends, setFriends] = useState<any[]>([]);
@@ -66,9 +63,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [totalConnections, setTotalConnections] = useState(0);
   const [notifications, setNotifications] = useState<NeuralNotification[]>([]);
   
-  const pendingInviteRef = useRef<string | null>(null);
   const router = useRouter();
   const socketRef = useRef<Socket | null>(null);
+  const pendingInviteRef = useRef<string | null>(null);
 
   const removeNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
@@ -77,22 +74,24 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const addNotification = useCallback((message: string, type: NeuralNotification['type'] = 'info', extra: Partial<NeuralNotification> = {}) => {
     const id = Math.random().toString(36).substr(2, 9);
     setNotifications(prev => [...prev, { id, message, type, ...extra }]);
-    if (type !== 'invite') {
-      setTimeout(() => removeNotification(id), 6000);
-    }
+    if (type !== 'invite') setTimeout(() => removeNotification(id), 6000);
   }, [removeNotification]);
+
+  const syncSocialData = useCallback((s: Socket) => {
+    const myId = localStorage.getItem('fumik_social_id');
+    if (!s.connected || !myId) return;
+    s.emit('social:get-online');
+    s.emit('social:get-friends', { userId: myId });
+  }, []);
 
   const initSocket = useCallback((url: string) => {
     if (socketRef.current) socketRef.current.disconnect();
     
-    // EXTREME COMPATIBILITY: Force absolute URLs and enable fallback polling
     const socketInstance = io(url, { 
-      reconnectionAttempts: 20, 
+      reconnectionAttempts: 15, 
       reconnectionDelay: 2000, 
-      timeout: 20000,
-      transports: ['websocket', 'polling'],
-      autoConnect: true,
-      upgrade: true
+      transports: ['websocket', 'polling'], // Fallback for mobile
+      timeout: 20000
     });
 
     socketInstance.on('connect', () => {
@@ -111,28 +110,31 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setTimeout(() => setNarratorMessage(null), 5000);
     });
 
-    socketInstance.on('social:total-connections', (count) => setTotalConnections(count));
-    socketInstance.on('room:left', () => { setRoom(null); router.push('/'); });
-    socketInstance.on('social:online-count', (count) => setOnlineCount(count));
-    socketInstance.on('social:online-list', (list) => setOnlineUsers(list));
-    socketInstance.on('social:friends-list', ({ friends: f, requests: r }) => { setFriends(f); setFriendRequests(r); });
-    
-    socketInstance.on('social:friends-updated', () => {
-      const myId = localStorage.getItem('fumik_social_id');
-      if (myId) socketInstance.emit('social:get-friends', { userId: myId });
+    socketInstance.on('social:registered', ({ ok, userId: uid, username }) => {
+      setIsRegistering(false);
+      if (ok) {
+        setSocialUserId(uid);
+        localStorage.setItem('fumik_social_id', uid);
+        localStorage.setItem('fumik_user_name', username);
+        syncSocialData(socketInstance);
+      }
     });
 
+    socketInstance.on('social:total-connections', (count) => setTotalConnections(count));
+    socketInstance.on('social:online-count', (count) => { setOnlineCount(count); syncSocialData(socketInstance); });
+    socketInstance.on('social:online-list', (list) => setOnlineUsers(list));
+    socketInstance.on('social:friends-list', ({ friends: f, requests: r }) => { setFriends(f); setFriendRequests(r); });
+    socketInstance.on('social:friends-updated', () => syncSocialData(socketInstance));
+    socketInstance.on('social:search-results', (results) => setSearchResults(results));
+    
     socketInstance.on('social:friend-request', ({ fromName }) => {
-      addNotification(`LINK REQUEST: Incoming signal from ${fromName}`, 'info');
-      const myId = localStorage.getItem('fumik_social_id');
-      if (myId) socketInstance.emit('social:get-friends', { userId: myId });
+      addNotification(`Incoming link request from ${fromName}`, 'info');
+      syncSocialData(socketInstance);
     });
 
     socketInstance.on('social:invite', ({ fromName, roomCode: rc }) => {
-      addNotification(`${fromName.toUpperCase()} IS SUMMONING YOU`, 'invite', { fromName, roomCode: rc });
+      addNotification(`${fromName.toUpperCase()} INVITED YOU`, 'invite', { fromName, roomCode: rc });
     });
-
-    socketInstance.on('social:search-results', (results) => setSearchResults(results));
 
     socketInstance.on('room:created', (newRoom: Room) => {
       setRoom(newRoom);
@@ -145,16 +147,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     socketInstance.on('room:joined', (joinedRoom: Room) => { setRoom(joinedRoom); router.push(`/lobby/${joinedRoom.code}`); });
     socketInstance.on('room:update', (updatedRoom: Room) => setRoom(updatedRoom));
-    socketInstance.on('disconnect', (reason) => {
-      setIsConnected(false);
-      if (reason === 'io server disconnect') socketInstance.connect();
-    });
-    socketInstance.on('connect_error', () => { setIsConnected(false); setError(`Sync Failed`); });
+    socketInstance.on('room:left', () => { setRoom(null); router.push('/'); });
+    socketInstance.on('disconnect', () => setIsConnected(false));
+    socketInstance.on('connect_error', () => { setIsConnected(false); setError("Sync Failed"); });
 
     setSocket(socketInstance);
     socketRef.current = socketInstance;
-    setAttemptedUrl(url);
-  }, [router, addNotification]);
+  }, [router, addNotification, syncSocialData]);
 
   useEffect(() => {
     let savedId = localStorage.getItem('fumik_user_id');
@@ -166,16 +165,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     const isProd = process.env.NODE_ENV === 'production';
     const getDevUrl = () => {
-      if (typeof window !== 'undefined') {
-        const hostname = window.location.hostname;
-        if (hostname === 'localhost' || hostname === '127.0.0.1') return 'http://localhost:8080';
-        return `http://${hostname}:8080`;
-      }
-      return 'http://localhost:8080';
+      if (typeof window === 'undefined') return 'http://localhost:8080';
+      const host = window.location.hostname;
+      return (host === 'localhost' || host === '127.0.0.1') ? 'http://localhost:8080' : `http://${host}:8080`;
     };
 
-    const defaultUrl = process.env.NEXT_PUBLIC_SERVER_URL || (isProd ? 'https://fumik-server.onrender.com' : getDevUrl());
-    initSocket(defaultUrl);
+    const serverUrl = process.env.NEXT_PUBLIC_SERVER_URL || (isProd ? 'https://fumik-server.onrender.com' : getDevUrl());
+    initSocket(serverUrl);
     return () => { socketRef.current?.disconnect(); };
   }, [initSocket]);
 
@@ -184,42 +180,35 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const updateProfile = (name: string, avatar: string) => room && socket?.emit('profile:update', { code: room.code, name, avatar });
   const registerSocial = (username: string, avatar: string) => { setIsRegistering(true); socket?.emit('social:register', { username, token: userId, avatar }); };
   const searchUsers = (query: string) => socket?.emit('social:search', { query });
-  
   const sendFriendRequest = (toUserId: string) => {
-    const fromId = localStorage.getItem('fumik_social_id');
-    if (fromId) {
-      socket?.emit('social:friend-request', { fromUserId: fromId, toUserId });
-      addNotification("Neural request transmitted.", "success");
+    const myId = localStorage.getItem('fumik_social_id');
+    if (myId && socket) {
+      socket.emit('social:friend-request', { fromUserId: myId, toUserId });
+      addNotification("Signal transmitted.", "success");
     }
   };
-  
-  const acceptFriendRequest = (fromUserId: string) => { 
+  const acceptFriendRequest = (fromUserId: string) => {
     const myId = localStorage.getItem('fumik_social_id');
-    if (myId) socket?.emit('social:accept-friend', { myUserId: myId, fromUserId }); 
+    if (myId && socket) socket.emit('social:accept-friend', { myUserId: myId, fromUserId });
   };
-  
   const declineFriendRequest = (fromUserId: string) => {
     setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId));
     addNotification("Signal rejected.", "info");
   };
-
   const leaveRoom = (code: string) => socket?.emit('room:leave', { code });
   const abortGame = (code: string) => socket?.emit('game:abort', { code });
   const setManualUrl = (url: string) => initSocket(url);
-
   const sendInvite = (toUserId: string, fromName: string) => {
     pendingInviteRef.current = toUserId;
-    const av = localStorage.getItem('fumik_user_avatar') || 'default';
-    socket?.emit('room:create', { name: fromName, avatar: av, userId: userId });
+    createRoom(fromName, localStorage.getItem('fumik_user_avatar') || 'default');
   };
 
   return (
     <SocketContext.Provider value={{ 
-      socket, room, userId, createRoom, joinRoom, updateProfile, error, isConnected, attemptedUrl, setManualUrl,
+      socket, room, userId, createRoom, joinRoom, updateProfile, error, isConnected, attemptedUrl: '', setManualUrl,
       onlineCount, onlineUsers, friends, friendRequests, registerSocial, searchUsers, searchResults,
       sendFriendRequest, acceptFriendRequest, declineFriendRequest, sendInvite, socialUserId, isRegistering,
-      narratorMessage, totalConnections, leaveRoom, abortGame,
-      notifications, removeNotification, addNotification
+      narratorMessage, totalConnections, leaveRoom, abortGame, notifications, removeNotification, addNotification
     }}>
       {children}
     </SocketContext.Provider>
