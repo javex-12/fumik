@@ -19,12 +19,12 @@ const GAME_INFO: Record<string, { desc: string, icon: string, instruction: strin
 };
 
 export default function GameReadyScreen() {
-  const { room, socket } = useSocket();
+  const { room, socket, leaveRoom, abortGame, userId } = useSocket();
   if (!room || !room.currentGame) return null;
 
   const game = room.currentGame;
   const info = GAME_INFO[game] || { desc: "Fun Challenge", icon: "Gamepad2", instruction: "Play to win!" };
-  const me = room.players.find(p => p.id === socket?.id);
+  const me = room.players.find(p => p.userId === userId);
   const readyCount = room.players.filter(p => p.isConnected && p.isReady).length;
   const totalCount = room.players.filter(p => p.isConnected).length;
 
@@ -74,9 +74,9 @@ export default function GameReadyScreen() {
 
         <div className="flex gap-4">
           {me?.isHost && (
-             <button onClick={() => socket?.emit('game:abort', { code: room.code })} className="flex-1 py-4 rounded-xl border-2 border-slate-100 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all">Abort</button>
+             <button onClick={() => { if(confirm("Abort?")) abortGame(room.code); }} className="flex-1 py-4 rounded-xl border-2 border-slate-100 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all">Abort</button>
           )}
-          <button onClick={() => socket?.emit('room:leave', { code: room.code })} className="flex-1 py-4 rounded-xl border-2 border-slate-100 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all">Leave</button>
+          <button onClick={() => { if(confirm("Leave?")) leaveRoom(room.code); }} className="flex-1 py-4 rounded-xl border-2 border-slate-100 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all">Leave</button>
         </div>
       </motion.div>
     </div>

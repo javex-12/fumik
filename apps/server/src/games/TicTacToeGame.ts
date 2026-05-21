@@ -8,10 +8,13 @@ export class TicTacToeGame extends BaseGame {
   }
 
   start(io: Server, room: Room) {
-    // Assign teams
+    // Assign teams and store in gameState instead of just player object
     const players = room.players.filter(p => p.isConnected);
+    const teams: Record<string, string> = {};
     players.forEach((p, i) => {
-      (p as any).team = i % 2 === 0 ? 'X' : 'O';
+      const team = i % 2 === 0 ? 'X' : 'O';
+      (p as any).team = team;
+      teams[p.userId] = team;
     });
 
     room.gameState = {
@@ -19,13 +22,17 @@ export class TicTacToeGame extends BaseGame {
       board: Array(9).fill(null),
       turn: 'X',
       winner: null,
+      teams: teams
     };
 
     io.to(room.code).emit('tictactoe:start', { 
-      players: players.map(p => ({ id: p.id, team: (p as any).team })),
+      teams: teams,
       board: room.gameState.board,
       turn: room.gameState.turn
     });
+    
+    // Also update room to sync teams in player list
+    io.to(room.code).emit('room:update', room);
   }
 
   handleInput(io: Server, socket: Socket, room: Room, data: any) {
