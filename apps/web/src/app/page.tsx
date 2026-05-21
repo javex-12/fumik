@@ -27,7 +27,7 @@ export default function LandingPage() {
     createRoom, joinRoom, error, isConnected, userId, socket,
     onlineUsers, onlineCount, friends, friendRequests, searchResults,
     registerSocial, searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, sendInvite,
-    socialUserId, isRegistering
+    socialUserId, isRegistering, totalConnections
   } = useSocket();
 
   const [step, setStep] = useState<Step>('splash');
