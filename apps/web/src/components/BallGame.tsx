@@ -14,22 +14,16 @@ export default function BallGame() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on('ball:starting', () => {
+    socket.on('ball:starting', ({ countdown }) => {
       setStatus('starting');
-      setCountdown(3);
-      const timer = setInterval(() => {
-        setCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            setStatus('playing');
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      setCountdown(countdown);
+      if (countdown <= 0) {
+        setStatus('playing');
+      }
     });
 
     socket.on('ball:state', (state) => {
+      setStatus('playing'); // Ensure status is playing if we are getting state
       setGameState(state);
     });
 
@@ -125,19 +119,26 @@ export default function BallGame() {
   }, [gameState, room?.players]);
 
   return (
-    <div className="h-full flex flex-col items-center justify-center relative overflow-hidden bg-white font-body">
+    <div className="h-full w-full flex flex-col items-center justify-center relative overflow-hidden bg-slate-950 font-body">
       {status === 'starting' && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-white/90 backdrop-blur-sm">
-          <h2 className="text-9xl font-black text-primary animate-bounce">{countdown}</h2>
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md">
+           <motion.div 
+            initial={{ scale: 0.5, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="text-center"
+          >
+            <h2 className="text-[10rem] font-black text-orange-500 italic leading-none">{countdown}</h2>
+            <p className="text-orange-500/40 font-black uppercase tracking-[0.5em] text-xs">Synchronizing Core...</p>
+          </motion.div>
         </div>
       )}
 
-      <div className="relative border-4 border-slate-100 rounded-[2rem] overflow-hidden bg-slate-50 shadow-inner">
+      <div className="relative w-full max-w-[800px] aspect-[4/3] border-4 border-slate-900 rounded-[2rem] overflow-hidden bg-slate-950 shadow-2xl">
         <canvas 
           ref={canvasRef}
           width={800}
           height={600}
-          className="max-w-full h-auto"
+          className="w-full h-full object-contain"
         />
       </div>
 

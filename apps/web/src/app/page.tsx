@@ -202,7 +202,7 @@ export default function LandingPage() {
                     <h1 className="text-xl sm:text-2xl font-black italic tracking-tight">FUMIK OS</h1>
                     <div className="flex items-center gap-2 text-[8px] font-black text-orange-500 uppercase tracking-[0.3em]">
                       <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse" />
-                      Server Linked
+                      {totalConnections} Active Pulses
                     </div>
                   </div>
                 </div>

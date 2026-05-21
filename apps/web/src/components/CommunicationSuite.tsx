@@ -15,14 +15,14 @@ interface Message {
 }
 
 export default function CommunicationSuite() {
-  const { socket, room, userId } = useSocket();
+  const { socket, room, userId, narratorMessage, abortGame, leaveRoom } = useSocket();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isCallActive, setIsCallActive] = useState(false);
   const [isMicOn, setIsMicOn] = useState(true);
   const [isVideoOn, setIsVideoOn] = useState(true);
-  const [isExpanded, setIsExpanded] = useState(false); // Collapsible pill state
+  const [isExpanded, setIsExpanded] = useState(false); 
   
   const [peers, setPeers] = useState<{ [id: string]: Peer.Instance }>({});
   const [streams, setStreams] = useState<{ [id: string]: MediaStream }>({});
@@ -88,13 +88,32 @@ export default function CommunicationSuite() {
     setPeers({}); setStreams({}); setIsCallActive(false);
   };
 
-  // Don't show anything if not in a room and no active call
+  const handleAbort = () => { if(room && confirm("Abort simulation and return to lobby?")) abortGame(room.code); };
+  const handleLeave = () => { if(room && confirm("Leave this session?")) leaveRoom(room.code); };
+
   if (!room && !isCallActive) return null;
 
   const unreadMessages = messages.length > 0 && !isChatOpen;
+  const isHost = room?.players.find(p => p.userId === userId)?.isHost;
 
   return (
     <>
+      <AnimatePresence>
+        {narratorMessage && (
+          <motion.div 
+            initial={{ opacity: 0, y: -50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -50 }}
+            className="fixed top-12 left-1/2 -translate-x-1/2 z-[200] w-full max-w-xl px-6 pointer-events-none"
+          >
+            <div className="bg-orange-600/90 backdrop-blur-xl border-2 border-orange-400 p-6 rounded-[2rem] shadow-[0_0_50px_rgba(249,115,22,0.3)] text-center relative overflow-hidden">
+               <div className="text-[10px] font-black text-white/60 uppercase tracking-[0.5em] mb-2">SYSTEM_NARRATOR_OS</div>
+               <div className="text-lg font-black text-white italic tracking-tight">{narratorMessage}</div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {isCallActive && (
           <motion.div 
@@ -131,6 +150,18 @@ export default function CommunicationSuite() {
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
               className="flex flex-col gap-2 bg-slate-900/95 backdrop-blur-xl border border-slate-800 p-2 rounded-[2rem] shadow-2xl shadow-black/50 pointer-events-auto"
             >
+              {room?.gameStatus === 'playing' && isHost && (
+                <button onClick={handleAbort} className="w-12 h-12 bg-red-600/20 text-red-500 border border-red-500/30 rounded-2xl flex items-center justify-center transition-all" title="Abort Game">
+                  <Icons.Square className="w-5 h-5" />
+                </button>
+              )}
+              
+              <button onClick={handleLeave} className="w-12 h-12 bg-slate-800 text-slate-400 rounded-2xl flex items-center justify-center transition-all" title="Leave Session">
+                <Icons.LogOut className="w-5 h-5" />
+              </button>
+
+              <div className="w-10 h-px bg-slate-800 mx-auto" />
+
               {isCallActive ? (
                 <>
                   <button onClick={toggleMic} className={clsx("w-12 h-12 rounded-2xl flex items-center justify-center transition-all", isMicOn ? "bg-slate-800 text-slate-400" : "bg-red-500/20 text-red-500 border border-red-500/30")}>

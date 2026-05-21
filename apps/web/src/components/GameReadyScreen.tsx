@@ -71,6 +71,13 @@ export default function GameReadyScreen() {
         <button onClick={() => socket?.emit('game:ready', { code: room.code })} disabled={me?.isReady} className={clsx("w-full py-5 rounded-2xl font-bold text-lg transition-all active:scale-95 shadow-lg", me?.isReady ? "bg-slate-100 text-slate-300 cursor-default" : "bg-primary text-white shadow-orange-200 hover:bg-primary-dark")}>
           {me?.isReady ? "Ready to Go!" : "Ready Up"}
         </button>
+
+        <div className="flex gap-4">
+          {me?.isHost && (
+             <button onClick={() => socket?.emit('game:abort', { code: room.code })} className="flex-1 py-4 rounded-xl border-2 border-slate-100 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-red-50 hover:text-red-500 hover:border-red-100 transition-all">Abort</button>
+          )}
+          <button onClick={() => socket?.emit('room:leave', { code: room.code })} className="flex-1 py-4 rounded-xl border-2 border-slate-100 text-slate-400 font-bold text-xs uppercase tracking-widest hover:bg-slate-50 hover:text-slate-600 transition-all">Leave</button>
+        </div>
       </motion.div>
     </div>
   );

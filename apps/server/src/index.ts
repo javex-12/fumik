@@ -394,19 +394,57 @@ io.on('connection', (socket) => {
     const requester = room.players.find(p => p.id === socket.id);
     if (!requester?.isHost) return;
 
-    console.log(`🎮 Start Game: ${gameType} in ${code}`);
+    console.log(`🎮 Start Game Sequence: ${gameType} in ${code}`);
     room.currentGame = gameType;
     room.gameStatus = 'readying';
     room.players.forEach(p => p.isReady = false);
+    
+    // Immediate broadcast that we are readying
     io.to(code).emit('room:update', room);
 
     if (gameType === 'brain') {
-      console.log(`🧠 Generating AI questions for room ${code}...`);
-      const aiQuestions = await GroqService.generateQuestions("mixed trivia", 10);
-      if (aiQuestions) {
-        room.gameState = { ...room.gameState, aiQuestions };
-        console.log(`✅ AI Questions ready!`);
+      io.to(code).emit('system:narrator', { message: "Accessing Encrypted Trivia Database... Stand by." });
+      try {
+        const aiQuestions = await GroqService.generateQuestions("mixed trivia", 10);
+        if (aiQuestions) {
+          room.gameState = { ...room.gameState, aiQuestions };
+          io.to(code).emit('system:narrator', { message: "Neural pathways established. AI dataset loaded." });
+        } else {
+          io.to(code).emit('system:narrator', { message: "AI Database offline. Using local emergency dataset." });
+        }
+      } catch (e) {
+        io.to(code).emit('system:narrator', { message: "Neural link failed. Switching to local memory." });
       }
+    }
+  });
+
+  socket.on('room:leave', ({ code }) => {
+    const room = rooms.get(code);
+    if (room) {
+      room.players = room.players.filter(p => p.id !== socket.id);
+      socket.leave(code);
+      if (room.players.length === 0) {
+        rooms.delete(code);
+      } else {
+        // Elect new host if needed
+        if (!room.players.some(p => p.isHost)) {
+          const next = room.players.find(p => p.isConnected);
+          if (next) next.isHost = true;
+        }
+        io.to(code).emit('room:update', room);
+      }
+      socket.emit('room:left');
+    }
+  });
+
+  socket.on('game:abort', ({ code }) => {
+    const room = rooms.get(code);
+    if (room && room.players.find(p => p.id === socket.id)?.isHost) {
+      room.gameStatus = 'lobby';
+      room.currentGame = null;
+      room.gameState = null;
+      io.to(code).emit('room:update', room);
+      io.to(code).emit('system:narrator', { message: "Simulation Aborted by Commander." });
     }
   });
 

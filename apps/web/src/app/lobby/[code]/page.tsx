@@ -145,7 +145,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
       <div className="max-w-7xl mx-auto space-y-12 relative z-10">
         <header className="flex flex-col md:flex-row justify-between items-center gap-6 lg:gap-8 bg-slate-900/40 backdrop-blur-xl p-5 sm:p-8 rounded-3xl sm:rounded-[2.5rem] border border-slate-800 shadow-2xl">
           <div className="flex flex-col md:flex-row items-center gap-6 text-center md:text-left">
-            <button onClick={() => window.location.href = '/'} className="p-3 bg-slate-950 border border-slate-800 rounded-full hover:border-orange-500 transition-colors shadow-lg active:scale-95 group" title="Leave Room">
+            <button onClick={() => { if(confirm("Abandon mission?")) leaveRoom(code); }} className="p-3 bg-slate-950 border border-slate-800 rounded-full hover:border-orange-500 transition-colors shadow-lg active:scale-95 group" title="Leave Room">
               <Icons.ArrowLeft className="w-6 h-6 text-slate-400 group-hover:text-orange-500 transition-colors" />
             </button>
             <div className="space-y-1">
