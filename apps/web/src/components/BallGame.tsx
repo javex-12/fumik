@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from "react";
 import { useSocket } from "@/lib/socket";
+import { motion } from "framer-motion";
 
 export default function BallGame() {
   const { room, socket } = useSocket();
