@@ -84,6 +84,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       router.push('/');
     });
 
+    socketInstance.on('social:friends-updated', () => {
+      const myId = localStorage.getItem('fumik_social_id');
+      if (myId) socketInstance.emit('social:get-friends', { userId: myId });
+    });
+
     socketInstance.on('social:registered', ({ ok, username, userId: uid }) => {
       setIsRegistering(false);
       if (ok) {
@@ -104,18 +109,31 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketInstance.on('social:friends-list', ({ friends: f, requests: r }: any) => { setFriends(f); setFriendRequests(r); });
     socketInstance.on('social:search-results', (results: any[]) => setSearchResults(results));
     socketInstance.on('social:friend-request', ({ fromUserId, fromName, fromAvatar }: any) => {
-      setFriendRequests(prev => [...prev.filter(r => r.userId !== fromUserId), { userId: fromUserId, name: fromName, avatar: fromAvatar }]);
+      setFriendRequests(prev => {
+        const exists = prev.find(r => r.userId === fromUserId);
+        if (exists) return prev;
+        return [...prev, { userId: fromUserId, name: fromName, avatar: fromAvatar }];
+      });
     });
 
     socketInstance.on('social:invite', ({ fromName, roomCode: rc }: any) => {
-      if (confirm(`🎮 ${fromName} invited you! Join their game?`)) {
+      if (confirm(`🎮 ${fromName} wants to play Brain War! Join session?`)) {
         const myName = localStorage.getItem('fumik_user_name') || 'Legend';
         const myAvatar = localStorage.getItem('fumik_user_avatar') || 'default';
-        socketInstance.emit('room:join', { code: rc, name: myName, avatar: myAvatar, userId: localStorage.getItem('fumik_user_id') });
+        const myId = localStorage.getItem('fumik_user_id');
+        socketInstance.emit('room:join', { code: rc, name: myName, avatar: myAvatar, userId: myId });
       }
     });
 
-    socketInstance.on('room:created', (newRoom: Room) => { setRoom(newRoom); router.push(`/lobby/${newRoom.code}`); });
+    socketInstance.on('room:created', (newRoom: Room) => {
+      setRoom(newRoom);
+      if (pendingInviteTo) {
+        socketInstance.emit('social:invite', { toUserId: pendingInviteTo, fromName: localStorage.getItem('fumik_user_name'), roomCode: newRoom.code });
+        setPendingInviteTo(null);
+      }
+      router.push(`/lobby/${newRoom.code}`);
+    });
+
     socketInstance.on('room:joined', (joinedRoom: Room) => { setRoom(joinedRoom); router.push(`/lobby/${joinedRoom.code}`); });
     socketInstance.on('room:update', (updatedRoom: Room) => setRoom(updatedRoom));
     socketInstance.on('disconnect', () => setIsConnected(false));
@@ -123,7 +141,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     setSocket(socketInstance);
     setAttemptedUrl(url);
-  }, [router]);
+  }, [router, pendingInviteTo]); // added pendingInviteTo dependency to ensure the closure sees it
 
   useEffect(() => {
     let savedId = localStorage.getItem('fumik_user_id');
@@ -144,8 +162,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const updateProfile = (name: string, avatar: string) => room && socket?.emit('profile:update', { code: room.code, name, avatar });
   const registerSocial = (username: string, avatar: string) => { setIsRegistering(true); socket?.emit('social:register', { username, token: userId, avatar }); };
   const searchUsers = (query: string) => socket?.emit('social:search', { query });
-  const sendFriendRequest = (toUserId: string) => socket?.emit('social:friend-request', { fromUserId: socialUserId, toUserId });
-  const acceptFriendRequest = (fromUserId: string) => { socket?.emit('social:accept-friend', { myUserId: socialUserId, fromUserId }); setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId)); socket?.emit('social:get-friends', { userId: socialUserId }); };
+  const sendFriendRequest = (toUserId: string) => {
+    const fromId = socialUserId || localStorage.getItem('fumik_social_id');
+    if (fromId) socket?.emit('social:friend-request', { fromUserId: fromId, toUserId });
+  };
+  const acceptFriendRequest = (fromUserId: string) => { 
+    const myId = socialUserId || localStorage.getItem('fumik_social_id');
+    if (myId) {
+      socket?.emit('social:accept-friend', { myUserId: myId, fromUserId }); 
+      setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId)); 
+      socket?.emit('social:get-friends', { userId: myId }); 
+    }
+  };
   const declineFriendRequest = (fromUserId: string) => setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId));
   const leaveRoom = (code: string) => socket?.emit('room:leave', { code });
   const abortGame = (code: string) => socket?.emit('game:abort', { code });
@@ -153,15 +181,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   const sendInvite = (toUserId: string, fromName: string) => {
     setPendingInviteTo(toUserId);
-    createRoom(fromName, localStorage.getItem('fumik_user_avatar') || 'default');
+    const av = localStorage.getItem('fumik_user_avatar') || 'default';
+    socket?.emit('room:create', { name: fromName, avatar: av, userId: userId });
   };
-
-  useEffect(() => {
-    if (room && pendingInviteTo && socket) {
-      socket.emit('social:invite', { toUserId: pendingInviteTo, fromName: localStorage.getItem('fumik_user_name') || 'Friend', roomCode: room.code });
-      setPendingInviteTo(null);
-    }
-  }, [room, pendingInviteTo, socket]);
 
   return (
     <SocketContext.Provider value={{ 

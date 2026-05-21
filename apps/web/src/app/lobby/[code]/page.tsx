@@ -3,17 +3,7 @@
 import { useSocket } from "@/lib/socket";
 import { motion, AnimatePresence } from "framer-motion";
 import { GAME_TYPES } from "@fumik/shared/constants";
-import { GameType } from "@fumik/shared/types";
-import ReflexGame from "@/components/ReflexGame";
 import BrainGame from "@/components/BrainGame";
-import BallGame from "@/components/BallGame";
-import ScribbleGame from "@/components/ScribbleGame";
-import VoteGame from "@/components/VoteGame";
-import ClickerGame from "@/components/ClickerGame";
-import MathGame from "@/components/MathGame";
-import EmojiGame from "@/components/EmojiGame";
-import TicTacToeGame from "@/components/TicTacToeGame";
-import MemoryGame from "@/components/MemoryGame";
 import GameReadyScreen from "@/components/GameReadyScreen";
 import ProfileModal from "@/components/ProfileModal";
 import * as Icons from "lucide-react";
@@ -25,9 +15,8 @@ const CommunicationSuite = dynamic(() => import("@/components/CommunicationSuite
 
 export default function LobbyPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = use(params);
-  const { room, socket, isConnected, error, userId, leaveRoom, abortGame } = useSocket();
+  const { room, socket, isConnected, userId, leaveRoom, abortGame } = useSocket();
   const [isMounted, setIsMounted] = useState(false);
-  const [showGameList, setShowGameList] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [syncAttempts, setSyncAttempts] = useState(0);
 
@@ -35,7 +24,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   const triggerSync = () => {
     if (isConnected && code) {
-      socket?.emit('room:get', { code });
+      socket?.emit('room:get', { code, userId: localStorage.getItem('fumik_user_id') });
       setSyncAttempts(prev => prev + 1);
     }
   };
@@ -55,10 +44,8 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   const renderGame = () => {
     if (room.gameStatus === 'readying') return <GameReadyScreen />;
-    if (room.gameStatus !== 'playing') return null;
-    const games: Record<string, any> = { reflex: ReflexGame, brain: BrainGame, ball: BallGame, scribble: ScribbleGame, vote: VoteGame, clicker: ClickerGame, math: MathGame, emoji: EmojiGame, tictactoe: TicTacToeGame, memory: MemoryGame };
-    const GameComponent = games[room.currentGame || ''];
-    return GameComponent ? <GameComponent /> : null;
+    if (room.gameStatus === 'playing' && room.currentGame === 'brain') return <BrainGame />;
+    return null;
   };
 
   const gameView = renderGame();
@@ -71,7 +58,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 px-4 py-2 rounded-full flex items-center gap-4 shadow-2xl">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-              <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">{room.currentGame} ACTIVE</span>
+              <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">BRAIN WAR ACTIVE</span>
             </div>
             <div className="w-px h-4 bg-slate-800" />
             <div className="flex gap-2">
@@ -153,20 +140,12 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
             </div>
           </div>
           <div className="lg:col-span-4 space-y-8">
-            <div className="bg-slate-900/60 backdrop-blur-xl rounded-3xl sm:rounded-[3rem] border border-slate-800 p-6 sm:p-10 shadow-2xl space-y-6 sm:space-y-10 relative overflow-hidden">
+            <div className="bg-slate-900/60 backdrop-blur-xl rounded-3xl sm:rounded-[3rem] border border-slate-800 p-6 sm:p-10 shadow-2xl space-y-6 sm:space-y-10 relative overflow-hidden text-center">
               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 blur-[60px] rounded-full" />
-              <div className="text-center space-y-4"><div className="w-20 h-20 bg-slate-800 rounded-3xl mx-auto flex items-center justify-center border border-slate-700 shadow-inner group-hover:scale-110 transition-transform"><Icons.Rocket className="w-10 h-10 text-orange-500" /></div><div className="space-y-1"><h3 className="font-black text-white text-2xl italic uppercase tracking-tight">Game Center</h3><p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">{isHost ? "Choose the next mission" : "Waiting for commander"}</p></div></div>
+              <div className="w-20 h-20 bg-slate-800 rounded-3xl mx-auto flex items-center justify-center border border-slate-700 shadow-inner group-hover:scale-110 transition-transform"><Icons.Brain className="w-10 h-10 text-orange-500" /></div>
+              <div className="space-y-1"><h3 className="font-black text-white text-2xl italic uppercase tracking-tight">BRAIN WAR</h3><p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">{isHost ? "Ready to launch?" : "Waiting for commander"}</p></div>
               {isHost ? (
-                <div className="space-y-4">
-                  <button onClick={() => setShowGameList(!showGameList)} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-4 sm:py-6 rounded-2xl sm:rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-3"><Icons.PlayCircle className="w-5 h-5" />Select Mission</button>
-                  <AnimatePresence>{showGameList && (
-                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="grid grid-cols-1 gap-3 pt-4 max-h-[300px] overflow-y-auto pr-2 scrollbar-hide">
-                      {Object.entries(GAME_TYPES).map(([type, name]) => (
-                        <button key={type} onClick={() => socket?.emit('game:start', { code: room.code, gameType: type })} className="p-5 rounded-2xl bg-slate-950/50 border border-slate-800 hover:border-orange-500/50 hover:bg-slate-900 text-left transition-all flex justify-between items-center group shadow-lg"><span className="font-black text-slate-400 group-hover:text-white text-xs uppercase tracking-widest transition-colors">{name}</span><Icons.Zap className="w-4 h-4 text-slate-800 group-hover:text-orange-500 transition-all" /></button>
-                      ))}
-                    </motion.div>
-                  )}</AnimatePresence>
-                </div>
+                <button onClick={() => socket?.emit('game:start', { code: room.code, gameType: 'brain' })} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-4 sm:py-6 rounded-2xl sm:rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-3"><Icons.PlayCircle className="w-5 h-5" />INITIATE SIMULATION</button>
               ) : (
                 <div className="p-8 rounded-3xl bg-slate-950/50 border border-slate-800 border-dashed text-center"><div className="w-8 h-8 border-4 border-orange-500/20 border-t-orange-500 rounded-full animate-spin mx-auto mb-4" /><p className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Awaiting Host Command...</p></div>
               )}
