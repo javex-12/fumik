@@ -18,13 +18,14 @@ const BootSequence = dynamic(() => import("@/components/BootSequence"), {
 });
 
 const CommunicationSuite = dynamic(() => import("@/components/CommunicationSuite"), { ssr: false });
+const NeuralNotifications = dynamic(() => import("@/components/NeuralNotifications"), { ssr: false });
 
 export default function LandingPage() {
   const { 
     createRoom, joinRoom, isConnected, socket,
     onlineUsers, onlineCount, friends, friendRequests, searchResults,
     registerSocial, searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, sendInvite,
-    socialUserId, isRegistering, totalConnections
+    socialUserId, isRegistering, totalConnections, addNotification
   } = useSocket();
 
   const [step, setStep] = useState<'splash' | 'onboarding' | 'dashboard'>('splash');
@@ -35,7 +36,7 @@ export default function LandingPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [socialTab, setSocialTab] = useState<'online'|'friends'|'requests'>('online');
   const [nameError, setNameError] = useState("");
-  const [isSocialHubOpen, setIsSocialHubOpen] = useState(false); // Mobile drawer state
+  const [isSocialHubOpen, setIsSocialHubOpen] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -95,18 +96,18 @@ export default function LandingPage() {
                 <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.avatar}`} />{u.isOnline && <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-slate-950" />}</div>
                 <div className="text-[10px] font-black uppercase text-white truncate max-w-[80px]">{u.name}</div>
               </div>
-              {isFriend(u.userId) ? <div className="text-orange-500/40 font-black text-[7px] uppercase tracking-widest px-2">Linked</div> : <button onClick={() => { sendFriendRequest(u.userId); alert('Signal Sent.'); }} className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-500 hover:bg-orange-600 hover:text-white transition-all"><Icons.UserPlus className="w-3.5 h-3.5" /></button>}
+              {isFriend(u.userId) ? <div className="text-orange-500/40 font-black text-[7px] uppercase tracking-widest px-2">Linked</div> : <button onClick={() => sendFriendRequest(u.userId)} className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-400 hover:bg-orange-600 hover:text-white transition-all"><Icons.UserPlus className="w-3.5 h-3.5" /></button>}
             </div>
           )) : <div className="text-center text-slate-600 text-[8px] font-black uppercase pt-8">No nodes found</div>
         ) : socialTab === 'online' ? (
           onlineUsers.filter(u => u.userId !== socialUserId).length > 0 ? onlineUsers.filter(u => u.userId !== socialUserId).map(user => (
             <div key={user.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatar}`} /><div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-slate-950" /></div>
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatar}`} /><div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-950" /></div>
                 <div><div className="text-[10px] font-black uppercase text-white">{user.name}</div><div className="text-[7px] text-green-500/60 font-black uppercase">Active</div></div>
               </div>
               <div className="flex gap-2">
-                {!isFriend(user.userId) && <button onClick={() => { sendFriendRequest(user.userId); alert('Signal Sent.'); }} className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-500 hover:text-white transition-all"><Icons.UserPlus className="w-3.5 h-3.5" /></button>}
+                {!isFriend(user.userId) && <button onClick={() => sendFriendRequest(user.userId)} className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-400 hover:text-white transition-all"><Icons.UserPlus className="w-3.5 h-3.5" /></button>}
                 <button onClick={() => sendInvite(user.userId, name)} className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white hover:bg-orange-500 transition-all"><Icons.Zap className="w-3.5 h-3.5" /></button>
               </div>
             </div>
@@ -115,7 +116,7 @@ export default function LandingPage() {
           friends.length > 0 ? friends.map(f => (
             <div key={f.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${f.avatar}`} />{f.isOnline && <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-slate-950" />}</div>
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${f.avatar}`} />{f.isOnline && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-950" />}</div>
                 <div><div className="text-[10px] font-black uppercase text-white">{f.name}</div><div className={clsx('text-[7px] font-black uppercase', f.isOnline ? 'text-green-500' : 'text-slate-600')}>{f.isOnline ? 'Active' : 'Offline'}</div></div>
               </div>
               {f.isOnline && <button onClick={() => sendInvite(f.userId, name)} className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white hover:bg-orange-500 transition-all"><Icons.Zap className="w-3.5 h-3.5" /></button>}
@@ -138,6 +139,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-body selection:bg-orange-500/30 relative">
+      <NeuralNotifications />
       <AnimatePresence mode="wait">
         {step === 'splash' && <BootSequence key="boot" onComplete={() => setStep(localStorage.getItem('fumik_user_name') ? 'dashboard' : 'onboarding')} />}
 
@@ -159,7 +161,6 @@ export default function LandingPage() {
         {step === 'dashboard' && (
           <motion.div key="dashboard" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen flex flex-col p-4 sm:p-8 lg:p-12 pb-32">
             <div className="max-w-7xl mx-auto w-full space-y-6 lg:space-y-12">
-              {/* REVAMPED HEADER */}
               <header className="flex justify-between items-center gap-4 bg-slate-900/60 backdrop-blur-xl p-4 sm:p-6 rounded-[1.5rem] sm:rounded-[2rem] border border-slate-800 shadow-2xl relative">
                 <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
                   <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-orange-500 flex items-center justify-center flex-shrink-0"><Icons.Zap className="w-5 h-5 sm:w-7 sm:h-7 text-white" /></div>
@@ -180,7 +181,6 @@ export default function LandingPage() {
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-12 items-start">
                 <div className="lg:col-span-8 space-y-6 lg:space-y-12">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 lg:gap-6">
-                    {/* HOST */}
                     <button onClick={() => createRoom(name, selectedAvatar)} className="group relative p-6 sm:p-8 rounded-[2rem] bg-orange-600 text-left overflow-hidden shadow-2xl transition-transform active:scale-95">
                        <div className="relative z-10 space-y-4">
                           <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center"><Icons.Plus className="w-6 h-6 text-white" /></div>
@@ -188,8 +188,6 @@ export default function LandingPage() {
                        </div>
                        <Icons.ChevronRight className="absolute bottom-6 sm:bottom-8 right-6 sm:right-8 w-6 h-6 text-white/20 group-hover:translate-x-1 transition-transform" />
                     </button>
-
-                    {/* JOIN */}
                     <div className="p-6 sm:p-8 rounded-[2rem] bg-slate-900 border border-slate-800 flex flex-col justify-between gap-4">
                       <div className="flex items-center gap-3"><Icons.Terminal className="w-5 h-5 text-orange-500" /><div className="text-sm sm:text-base font-black text-white italic uppercase leading-none">Interlink</div></div>
                       <div className="flex items-center gap-2">
@@ -199,7 +197,6 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  {/* FEATURE CARD */}
                   <div className="aspect-[16/9] sm:aspect-[21/9] rounded-[2rem] sm:rounded-[3rem] bg-slate-900 border border-slate-800 p-6 sm:p-12 flex flex-col justify-between relative overflow-hidden group">
                      <div className="absolute top-0 right-0 w-64 h-64 sm:w-96 sm:h-96 bg-orange-600/5 blur-[60px] sm:blur-[100px]" />
                      <div className="flex justify-between items-start relative z-10">
@@ -213,7 +210,6 @@ export default function LandingPage() {
                   </div>
                 </div>
 
-                {/* DESKTOP SOCIAL HUB */}
                 <div className="hidden lg:block lg:col-span-4 h-[600px]">
                   <div className="h-full rounded-[2rem] border border-slate-800 shadow-2xl overflow-hidden">
                     <SocialHubContent />
@@ -222,14 +218,9 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* MOBILE SOCIAL HUB TRIGGER & DRAWER */}
             <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[80] w-full max-w-[200px]">
-               <button 
-                onClick={() => setIsSocialHubOpen(true)}
-                className="w-full bg-slate-900/90 backdrop-blur-xl border border-slate-800 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-2xl text-xs font-black uppercase tracking-widest text-orange-500 border-t-orange-500/50"
-               >
-                 <Icons.Users className="w-4 h-4" /> Hub 
-                 {friendRequests.length > 0 && <span className="bg-red-500 text-white w-2 h-2 rounded-full" />}
+               <button onClick={() => setIsSocialHubOpen(true)} className="w-full bg-slate-900/90 backdrop-blur-xl border border-slate-800 p-4 rounded-2xl flex items-center justify-center gap-3 shadow-2xl text-xs font-black uppercase tracking-widest text-orange-500 border-t-orange-500/50">
+                 <Icons.Users className="w-4 h-4" /> Hub {friendRequests.length > 0 && <span className="bg-red-500 text-white w-2 h-2 rounded-full" />}
                </button>
             </div>
 
@@ -237,14 +228,10 @@ export default function LandingPage() {
               {isSocialHubOpen && (
                 <>
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsSocialHubOpen(false)} className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-[90]" />
-                  <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed bottom-0 inset-x-0 h-[80vh] z-[100] rounded-t-[3rem] border-t border-slate-800 shadow-2xl overflow-hidden">
-                    <div className="w-12 h-1.5 bg-slate-800 rounded-full mx-auto my-4" />
-                    <SocialHubContent />
-                  </motion.div>
+                  <motion.div initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ type: 'spring', damping: 25, stiffness: 300 }} className="fixed bottom-0 inset-x-0 h-[80vh] z-[100] rounded-t-[3rem] border-t border-slate-800 shadow-2xl overflow-hidden"><div className="w-12 h-1.5 bg-slate-800 rounded-full mx-auto my-4" /><SocialHubContent /></motion.div>
                 </>
               )}
             </AnimatePresence>
-
             <CommunicationSuite />
           </motion.div>
         )}

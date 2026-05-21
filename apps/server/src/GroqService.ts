@@ -1,13 +1,9 @@
 const GROQ_API_KEY = process.env.GROQ_API_KEY || "";
 
-if (!GROQ_API_KEY) {
-  console.warn("⚠️  GROQ_API_KEY is not set — AI trivia generation will be disabled.");
-}
-
 export class GroqService {
-  static async generateQuestions(category: string, count: number = 5) {
+  static async generateQuestions(category: string, count: number = 5, retryCount = 0): Promise<any[] | null> {
     if (!GROQ_API_KEY) {
-      console.warn("⚠️  Skipping Groq call — API key missing.");
+      console.warn("⚠️  GROQ_API_KEY missing.");
       return null;
     }
 
@@ -25,27 +21,24 @@ export class GroqService {
             messages: [
               {
                 role: "system",
-                content: `You are a trivia master for a social gaming app called FUMIK. 
-                Generate fun, engaging, and slightly challenging trivia questions. 
-                Ensure extreme variety in topics even within a category. 
-                DO NOT repeat common trivia questions. 
-                Current seed: ${Date.now()}. 
-                Return ONLY a JSON object with a 'questions' array. 
-                Each question must have: id (unique string), category, question, options (array of 4 strings), correctIndex (number 0-3), and difficulty (easy, medium, or hard).`
+                content: `You are FUMIK OS AI trivia engine. Generate ${count} fun, engaging trivia questions about ${category}. 
+                Ensure extreme variety. Seed: ${Date.now()}_${Math.random()}.
+                Return ONLY a JSON object with a 'questions' array.
+                Structure: id (unique), category, question, options (4 strings), correctIndex (0-3), difficulty.`
               },
               {
                 role: "user",
-                content: `Generate ${count} fresh and unique trivia questions about ${category}. Mix easy and hard ones.`
+                content: `Generate ${count} questions now.`
               }
             ],
-            response_format: { type: "json_object" }
+            response_format: { type: "json_object" },
+            temperature: 0.8
           })
         }
       );
 
       if (!response.ok) {
-        const err = await response.text();
-        console.error("❌ Groq API error:", response.status, err);
+        if (retryCount < 1) return this.generateQuestions(category, count, retryCount + 1);
         return null;
       }
 
@@ -53,6 +46,7 @@ export class GroqService {
       const content = JSON.parse(data.choices[0].message.content);
       return content.questions || content;
     } catch (error) {
+      if (retryCount < 1) return this.generateQuestions(category, count, retryCount + 1);
       console.error("❌ Groq Error:", error);
       return null;
     }
