@@ -57,6 +57,11 @@ export default function LandingPage() {
     localStorage.setItem('fumik_user_avatar', selectedAvatar);
   };
 
+  const handleSearch = (q: string) => {
+    setSearchQuery(q);
+    if (q.length >= 2) searchUsers(q);
+  };
+
   const handleCreateRoom = () => {
     if (!isConnected) return;
     setIsLoading(true);
@@ -67,6 +72,11 @@ export default function LandingPage() {
     if (!roomCode || roomCode.length !== 5) return;
     setIsLoading(true);
     joinRoom(roomCode, name, selectedAvatar);
+  };
+
+  const inviteToRoom = (toUserId: string) => {
+    if (!isConnected) return;
+    sendInvite(toUserId, name);
   };
 
   if (!isMounted) return null;
