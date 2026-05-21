@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Room } from '@fumik/shared/types';
 import { useRouter } from 'next/navigation';
@@ -56,19 +56,37 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [pendingInviteTo, setPendingInviteTo] = useState<string | null>(null);
 
   const router = useRouter();
+  const socketRef = useRef<Socket | null>(null);
+
+  const syncSocialData = useCallback((s: Socket, uid: string) => {
+    if (!s.connected) return;
+    s.emit('social:get-online');
+    s.emit('social:get-friends', { userId: uid });
+  }, []);
 
   const initSocket = useCallback((url: string) => {
-    if (socket) socket.disconnect();
-    const socketInstance = io(url, { reconnectionAttempts: 10, reconnectionDelay: 1000, timeout: 10000 });
+    if (socketRef.current) socketRef.current.disconnect();
+    
+    const socketInstance = io(url, { 
+      reconnectionAttempts: 10, 
+      reconnectionDelay: 1000, 
+      timeout: 10000,
+      transports: ['websocket', 'polling'] // Ensure mobile compatibility
+    });
 
     socketInstance.on('connect', () => {
       setIsConnected(true);
       setError(null);
       const savedName = localStorage.getItem('fumik_user_name');
-      const savedAvatar = localStorage.getItem('fumik_user_avatar');
       const persistentId = localStorage.getItem('fumik_user_id');
+      const savedAvatar = localStorage.getItem('fumik_user_avatar');
+      
       if (savedName && persistentId) {
-        socketInstance.emit('social:register', { username: savedName, token: persistentId, avatar: savedAvatar || 'default' });
+        socketInstance.emit('social:register', { 
+          username: savedName, 
+          token: persistentId, 
+          avatar: savedAvatar || 'default' 
+        });
       }
     });
 
@@ -84,34 +102,34 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       router.push('/');
     });
 
-    socketInstance.on('social:friends-updated', () => {
-      const myId = localStorage.getItem('fumik_social_id');
-      if (myId) socketInstance.emit('social:get-friends', { userId: myId });
-    });
-
     socketInstance.on('social:registered', ({ ok, username, userId: uid }) => {
       setIsRegistering(false);
       if (ok) {
         setSocialUserId(uid);
         localStorage.setItem('fumik_user_name', username);
         localStorage.setItem('fumik_social_id', uid);
-        socketInstance.emit('social:get-online');
-        socketInstance.emit('social:get-friends', { userId: uid });
+        syncSocialData(socketInstance, uid);
       }
     });
 
     socketInstance.on('social:online-count', (count: number) => {
       setOnlineCount(count);
-      socketInstance.emit('social:get-online');
+      const myId = localStorage.getItem('fumik_social_id');
+      if (myId) syncSocialData(socketInstance, myId);
     });
 
     socketInstance.on('social:online-list', (list: any[]) => setOnlineUsers(list));
     socketInstance.on('social:friends-list', ({ friends: f, requests: r }: any) => { setFriends(f); setFriendRequests(r); });
+    socketInstance.on('social:friends-updated', () => {
+      const myId = localStorage.getItem('fumik_social_id');
+      if (myId) syncSocialData(socketInstance, myId);
+    });
+
     socketInstance.on('social:search-results', (results: any[]) => setSearchResults(results));
+    
     socketInstance.on('social:friend-request', ({ fromUserId, fromName, fromAvatar }: any) => {
       setFriendRequests(prev => {
-        const exists = prev.find(r => r.userId === fromUserId);
-        if (exists) return prev;
+        if (prev.some(r => r.userId === fromUserId)) return prev;
         return [...prev, { userId: fromUserId, name: fromName, avatar: fromAvatar }];
       });
     });
@@ -120,8 +138,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (confirm(`🎮 ${fromName} wants to play Brain War! Join session?`)) {
         const myName = localStorage.getItem('fumik_user_name') || 'Legend';
         const myAvatar = localStorage.getItem('fumik_user_avatar') || 'default';
-        const myId = localStorage.getItem('fumik_user_id');
-        socketInstance.emit('room:join', { code: rc, name: myName, avatar: myAvatar, userId: myId });
+        socketInstance.emit('room:join', { code: rc, name: myName, avatar: myAvatar, userId: localStorage.getItem('fumik_user_id') });
       }
     });
 
@@ -140,8 +157,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketInstance.on('connect_error', () => { setIsConnected(false); setError(`Unreachable: ${url}`); });
 
     setSocket(socketInstance);
+    socketRef.current = socketInstance;
     setAttemptedUrl(url);
-  }, [router, pendingInviteTo]); // added pendingInviteTo dependency to ensure the closure sees it
+  }, [router, pendingInviteTo, syncSocialData]);
 
   useEffect(() => {
     let savedId = localStorage.getItem('fumik_user_id');
@@ -154,7 +172,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const isProd = process.env.NODE_ENV === 'production';
     const defaultUrl = process.env.NEXT_PUBLIC_SERVER_URL || (isProd ? 'https://fumik-server.onrender.com' : `http://${window.location.hostname}:3001`);
     initSocket(defaultUrl);
-    return () => { socket?.disconnect(); };
+    return () => { socketRef.current?.disconnect(); };
   }, [initSocket]);
 
   const createRoom = (name: string, avatar: string) => socket?.emit('room:create', { name, avatar, userId });
@@ -162,18 +180,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const updateProfile = (name: string, avatar: string) => room && socket?.emit('profile:update', { code: room.code, name, avatar });
   const registerSocial = (username: string, avatar: string) => { setIsRegistering(true); socket?.emit('social:register', { username, token: userId, avatar }); };
   const searchUsers = (query: string) => socket?.emit('social:search', { query });
+  
   const sendFriendRequest = (toUserId: string) => {
     const fromId = socialUserId || localStorage.getItem('fumik_social_id');
     if (fromId) socket?.emit('social:friend-request', { fromUserId: fromId, toUserId });
   };
+  
   const acceptFriendRequest = (fromUserId: string) => { 
     const myId = socialUserId || localStorage.getItem('fumik_social_id');
-    if (myId) {
-      socket?.emit('social:accept-friend', { myUserId: myId, fromUserId }); 
-      setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId)); 
-      socket?.emit('social:get-friends', { userId: myId }); 
-    }
+    if (myId) socket?.emit('social:accept-friend', { myUserId: myId, fromUserId }); 
   };
+  
   const declineFriendRequest = (fromUserId: string) => setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId));
   const leaveRoom = (code: string) => socket?.emit('room:leave', { code });
   const abortGame = (code: string) => socket?.emit('game:abort', { code });
