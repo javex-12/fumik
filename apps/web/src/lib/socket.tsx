@@ -205,7 +205,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   return (
     <SocketContext.Provider value={{ 
-      socket, room, userId, createRoom, joinRoom, updateProfile, error, isConnected, attemptedUrl: '', setManualUrl,
+      socket, room, userId, createRoom, joinRoom, updateProfile, error, isConnected, setManualUrl,
       onlineCount, onlineUsers, friends, friendRequests, registerSocial, searchUsers, searchResults,
       sendFriendRequest, acceptFriendRequest, declineFriendRequest, sendInvite, socialUserId, isRegistering,
       narratorMessage, totalConnections, leaveRoom, abortGame, notifications, removeNotification, addNotification
