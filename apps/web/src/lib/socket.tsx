@@ -41,11 +41,9 @@ interface SocketContextType {
   totalConnections: number;
   leaveRoom: (code: string) => void;
   abortGame: (code: string) => void;
-  
-  // Custom Alerts
   notifications: NeuralNotification[];
   removeNotification: (id: string) => void;
-  addNotification: (msg: string, type: NeuralNotification['type']) => void;
+  addNotification: (msg: string, type: NeuralNotification['type'], extra?: Partial<NeuralNotification>) => void;
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -72,28 +70,29 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const socketRef = useRef<Socket | null>(null);
 
-  const addNotification = useCallback((message: string, type: NeuralNotification['type'] = 'info', extra: Partial<NeuralNotification> = {}) => {
-    const id = Math.random().toString(36).substr(2, 9);
-    setNotifications(prev => [...prev, { id, message, type, ...extra }]);
-    if (type !== 'invite') {
-      setTimeout(() => removeNotification(id), 5000);
-    }
-  }, []);
-
   const removeNotification = useCallback((id: string) => {
     setNotifications(prev => prev.filter(n => n.id !== id));
   }, []);
 
+  const addNotification = useCallback((message: string, type: NeuralNotification['type'] = 'info', extra: Partial<NeuralNotification> = {}) => {
+    const id = Math.random().toString(36).substr(2, 9);
+    setNotifications(prev => [...prev, { id, message, type, ...extra }]);
+    if (type !== 'invite') {
+      setTimeout(() => removeNotification(id), 6000);
+    }
+  }, [removeNotification]);
+
   const initSocket = useCallback((url: string) => {
     if (socketRef.current) socketRef.current.disconnect();
     
-    // EXTREME MOBILE COMPATIBILITY: Force absolute URLs and enable fallback polling
+    // EXTREME COMPATIBILITY: Force absolute URLs and enable fallback polling
     const socketInstance = io(url, { 
-      reconnectionAttempts: 10, 
-      reconnectionDelay: 1000, 
-      timeout: 15000,
+      reconnectionAttempts: 20, 
+      reconnectionDelay: 2000, 
+      timeout: 20000,
       transports: ['websocket', 'polling'],
-      autoConnect: true
+      autoConnect: true,
+      upgrade: true
     });
 
     socketInstance.on('connect', () => {
@@ -123,14 +122,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       if (myId) socketInstance.emit('social:get-friends', { userId: myId });
     });
 
-    socketInstance.on('social:friend-request', ({ fromName, fromUserId }) => {
-      addNotification(`New link request from ${fromName}`, 'info');
+    socketInstance.on('social:friend-request', ({ fromName }) => {
+      addNotification(`LINK REQUEST: Incoming signal from ${fromName}`, 'info');
       const myId = localStorage.getItem('fumik_social_id');
       if (myId) socketInstance.emit('social:get-friends', { userId: myId });
     });
 
     socketInstance.on('social:invite', ({ fromName, roomCode: rc }) => {
-      addNotification(`${fromName} invited you to Brain War!`, 'invite', { fromName, roomCode: rc });
+      addNotification(`${fromName.toUpperCase()} IS SUMMONING YOU`, 'invite', { fromName, roomCode: rc });
     });
 
     socketInstance.on('social:search-results', (results) => setSearchResults(results));
@@ -138,11 +137,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketInstance.on('room:created', (newRoom: Room) => {
       setRoom(newRoom);
       if (pendingInviteRef.current) {
-        socketInstance.emit('social:invite', { 
-          toUserId: pendingInviteRef.current, 
-          fromName: localStorage.getItem('fumik_user_name'), 
-          roomCode: newRoom.code 
-        });
+        socketInstance.emit('social:invite', { toUserId: pendingInviteRef.current, fromName: localStorage.getItem('fumik_user_name'), roomCode: newRoom.code });
         pendingInviteRef.current = null;
       }
       router.push(`/lobby/${newRoom.code}`);
@@ -150,12 +145,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     socketInstance.on('room:joined', (joinedRoom: Room) => { setRoom(joinedRoom); router.push(`/lobby/${joinedRoom.code}`); });
     socketInstance.on('room:update', (updatedRoom: Room) => setRoom(updatedRoom));
-    socketInstance.on('disconnect', () => setIsConnected(false));
-    socketInstance.on('connect_error', (err) => { 
-      setIsConnected(false); 
-      setError(`Link Failed: Check Sector`); 
-      console.error("Link Error:", err);
+    socketInstance.on('disconnect', (reason) => {
+      setIsConnected(false);
+      if (reason === 'io server disconnect') socketInstance.connect();
     });
+    socketInstance.on('connect_error', () => { setIsConnected(false); setError(`Sync Failed`); });
 
     setSocket(socketInstance);
     socketRef.current = socketInstance;
@@ -171,12 +165,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     setUserId(savedId);
 
     const isProd = process.env.NODE_ENV === 'production';
-    // If not production, use the IP of the machine running the app, not 'localhost'
-    // because mobile phones can't reach 'localhost'
     const getDevUrl = () => {
       if (typeof window !== 'undefined') {
         const hostname = window.location.hostname;
-        return `http://${hostname}:8080`; // Server is on 8080 usually
+        if (hostname === 'localhost' || hostname === '127.0.0.1') return 'http://localhost:8080';
+        return `http://${hostname}:8080`;
       }
       return 'http://localhost:8080';
     };
@@ -196,7 +189,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const fromId = localStorage.getItem('fumik_social_id');
     if (fromId) {
       socket?.emit('social:friend-request', { fromUserId: fromId, toUserId });
-      addNotification("Link request transmitted.", "success");
+      addNotification("Neural request transmitted.", "success");
     }
   };
   
