@@ -1,4 +1,5 @@
 import { BrainGame } from './BrainGame';
+import { ClickerGame } from './ClickerGame';
 
 class GameRegistry {
   private games: Map<string, any> = new Map();
@@ -14,3 +15,4 @@ class GameRegistry {
 
 export const gameRegistry = new GameRegistry();
 gameRegistry.register(new BrainGame());
+gameRegistry.register(new ClickerGame());

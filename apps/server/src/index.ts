@@ -197,13 +197,18 @@ io.on('connection', (socket) => {
       if (isMongoConnected()) {
         const u = await User.findById(userId).populate('friends', 'username avatar').populate('friendRequests', 'username avatar');
         if (u) {
-          friends = (u.friends as any[]).map(f => ({ userId: f._id.toString(), name: f.username, avatar: f.avatar, isOnline: onlineUsers.has(f._id.toString()) }));
+          friends = (u.friends as any[])
+            .map(f => ({ userId: f._id.toString(), name: f.username, avatar: f.avatar, isOnline: onlineUsers.has(f._id.toString()) }))
+            .filter(f => f.userId !== userId);
           requests = (u.friendRequests as any[]).map(r => ({ userId: r._id.toString(), name: r.username, avatar: r.avatar }));
         }
       } else {
         const u = inMemoryUsers.get(userId);
         if (u) {
-          friends = u.friends.map((fid: string) => { const f = inMemoryUsers.get(fid); return f ? { userId: f._id, name: f.username, avatar: f.avatar, isOnline: onlineUsers.has(f._id) } : null; }).filter(Boolean);
+          friends = u.friends
+            .map((fid: string) => { const f = inMemoryUsers.get(fid); return f ? { userId: f._id, name: f.username, avatar: f.avatar, isOnline: onlineUsers.has(f._id) } : null; })
+            .filter(Boolean)
+            .filter((f: any) => f.userId !== userId);
           requests = u.friendRequests.map((rid: string) => { const r = inMemoryUsers.get(rid); return r ? { userId: r._id, name: r.username, avatar: r.avatar } : null; }).filter(Boolean);
         }
       }
@@ -293,31 +298,53 @@ io.on('connection', (socket) => {
     io.to(to).emit('call:signal', { from: socket.id, signal });
   });
 
-  socket.on('game:start', async ({ code }) => {
+  socket.on('game:start', async ({ code, gameType = 'brain' }) => {
     const room = rooms.get(code);
     if (!room || room.players.find(p => p.id === socket.id)?.isHost === false) return;
-    room.currentGame = 'brain'; room.gameStatus = 'readying'; room.players.forEach(p => p.isReady = false);
-    io.to(code).emit('room:update', room);
+    
+    room.currentGame = gameType;
+    room.players.forEach(p => p.isReady = false);
 
-    // Aggregate player preferences (niches/categories and difficulties)
-    const activePlayers = room.players.filter(p => p.isConnected);
-    const niches = Array.from(new Set(activePlayers.map(p => p.niche || 'mixed trivia')));
-    const difficulties = Array.from(new Set(activePlayers.map(p => p.difficulty || 'medium')));
+    if (gameType === 'clicker') {
+      room.gameStatus = 'playing';
+      io.to(code).emit('room:update', room);
+      gameRegistry.get('clicker')?.start(io, room);
+    } else {
+      room.gameStatus = 'readying';
+      io.to(code).emit('room:update', room);
 
-    const displayNiches = niches.map(n => n.toUpperCase()).join(" + ");
-    const displayDiffs = difficulties.map(d => d.toUpperCase()).join(" & ");
+      // Aggregate player preferences (niches/categories and difficulties)
+      const activePlayers = room.players.filter(p => p.isConnected);
+      const niches = Array.from(new Set(activePlayers.map(p => p.niche || 'mixed trivia')));
+      const difficulties = Array.from(new Set(activePlayers.map(p => p.difficulty || 'medium')));
 
-    io.to(code).emit('system:narrator', { message: `Loading questions for ${displayNiches} (${displayDiffs})...` });
-    const qs = await GroqService.generateQuestions(niches, 10, difficulties);
-    if (qs) { room.gameState = { ...room.gameState, aiQuestions: qs }; io.to(code).emit('system:narrator', { message: "AI dataset injected." }); }
-    else io.to(code).emit('system:narrator', { message: "AI link error." });
+      const displayNiches = niches.map(n => n.toUpperCase()).join(" + ");
+      const displayDiffs = difficulties.map(d => d.toUpperCase()).join(" & ");
+
+      io.to(code).emit('system:narrator', { message: `Loading questions for ${displayNiches} (${displayDiffs})...` });
+      const qs = await GroqService.generateQuestions(niches, 10, difficulties);
+      if (qs) { 
+        room.gameState = { ...room.gameState, aiQuestions: qs }; 
+        io.to(code).emit('system:narrator', { message: "AI dataset injected." }); 
+      } else {
+        io.to(code).emit('system:narrator', { message: "AI link error." });
+      }
+    }
   });
 
   socket.on('game:ready', ({ code }) => {
     const room = rooms.get(code);
     if (!room) return;
     const p = room.players.find(x => x.id === socket.id);
-    if (p) { p.isReady = true; io.to(code).emit('room:update', room); if (room.players.filter(x => x.isConnected).every(x => x.isReady)) { room.gameStatus = 'playing'; io.to(code).emit('room:update', room); gameRegistry.get('brain')?.start(io, room); } }
+    if (p) { 
+      p.isReady = true; 
+      io.to(code).emit('room:update', room); 
+      if (room.players.filter(x => x.isConnected).every(x => x.isReady)) { 
+        room.gameStatus = 'playing'; 
+        io.to(code).emit('room:update', room); 
+        gameRegistry.get(room.currentGame || 'brain')?.start(io, room); 
+      } 
+    }
   });
 
   socket.on('game:abort', ({ code }) => {

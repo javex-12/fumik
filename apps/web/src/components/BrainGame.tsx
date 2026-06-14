@@ -84,9 +84,10 @@ export default function BrainGame() {
       setTimeLeft(10);
     });
 
-    // Server ack: our answer was recorded — lock it in
-    socket.on('brain:answerAck', () => {
-      setAnswerLocked(true);
+    // Server ack: our answer was recorded — lock it in if server says it's locked
+    socket.on('brain:answerAck', ({ answerIndex, locked }) => {
+      setSelectedAnswer(answerIndex);
+      setAnswerLocked(locked);
     });
 
     socket.on('brain:reveal', ({ correctIndex, playerAnswers }) => {
@@ -117,8 +118,13 @@ export default function BrainGame() {
   }, [status, timeLeft]);
 
   const handleAnswer = (index: number) => {
-    // Block if: not in playing phase, already locked, or already selected
-    if (status !== 'playing' || answerLocked || selectedAnswer !== null) return;
+    // Block if not in playing phase
+    if (status !== 'playing') return;
+    
+    // Once time left is 5s or less, the answer is locked forever.
+    const isLockedTime = timeLeft <= 5;
+    if ((isLockedTime || answerLocked) && selectedAnswer !== null) return;
+    
     setSelectedAnswer(index);
     socket?.emit('game:input', { code: room?.code, data: { questionId: currentQuestion.id, answerIndex: index } });
   };
@@ -225,6 +231,15 @@ export default function BrainGame() {
                 <div className={clsx("text-3xl md:text-4xl font-mono font-bold tracking-tighter transition-colors", timeLeft < 3 ? "text-red-500 animate-pulse" : "text-white")}>
                   {Math.ceil(timeLeft)}s
                 </div>
+                {status === 'playing' && (
+                  <div className="text-[7px] font-black uppercase tracking-widest mt-1">
+                    {timeLeft > 5 ? (
+                      <span className="text-green-500 animate-pulse">🔓 Tap to change</span>
+                    ) : (
+                      <span className="text-red-500">🔒 LOCKED</span>
+                    )}
+                  </div>
+                )}
              </div>
              <div className="h-10 md:h-12 w-px bg-slate-800" />
              <div className="text-left">
@@ -246,15 +261,21 @@ export default function BrainGame() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 pb-12">
           {currentQuestion?.options.map((option: string, index: number) => {
             let stateClass = "bg-slate-900 border-slate-800 text-slate-400 hover:border-orange-500/50 hover:bg-slate-800 hover:text-white";
+            const isLockedTime = timeLeft <= 5;
             
             if (status === 'reveal') {
               if (index === correctIndex) stateClass = "bg-green-600 border-green-500 text-white shadow-[0_0_30px_rgba(34,197,94,0.3)] scale-105 z-10";
               else if (index === selectedAnswer) stateClass = "bg-red-600 border-red-500 text-white opacity-40 grayscale";
               else stateClass = "bg-slate-950 border-slate-900 text-slate-700 opacity-20";
             } else if (selectedAnswer === index) {
-              // Answer chosen but not yet revealed — show as locked-in (orange)
-              stateClass = "bg-orange-600 border-orange-500 text-white shadow-xl scale-95 cursor-not-allowed";
-            } else if (answerLocked || selectedAnswer !== null) {
+              if (isLockedTime || answerLocked) {
+                // Answer locked-in (orange)
+                stateClass = "bg-orange-600 border-orange-500 text-white shadow-xl scale-95 cursor-not-allowed";
+              } else {
+                // Selection made but still editable (subtle orange border/glow)
+                stateClass = "bg-orange-500/20 border-orange-500 text-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.15)] scale-[0.98]";
+              }
+            } else if ((isLockedTime || answerLocked) && selectedAnswer !== null) {
               // Other options after answer locked — dim them
               stateClass = "bg-slate-950 border-slate-900 text-slate-700 opacity-30 cursor-not-allowed";
             }
@@ -263,8 +284,7 @@ export default function BrainGame() {
               <button
                 key={index}
                 onClick={() => handleAnswer(index)}
-                // Disabled once answer locked OR in reveal phase
-                disabled={status !== 'playing' || answerLocked || selectedAnswer !== null}
+                disabled={status !== 'playing' || ((isLockedTime || answerLocked) && selectedAnswer !== null)}
                 className={clsx("relative p-8 rounded-[2rem] border-2 text-xl font-black italic text-center transition-all duration-300 group overflow-hidden uppercase tracking-tight", stateClass)}
               >
                 <div className="relative z-10">{option}</div>
@@ -285,8 +305,8 @@ export default function BrainGame() {
 
                 {/* Personal confirmation badge */}
                 {status === 'playing' && selectedAnswer === index && (
-                  <div className="absolute top-3 right-3 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
-                    <Icons.Check className="w-3.5 h-3.5 text-white" />
+                  <div className="absolute top-3 right-3 w-6 h-6 bg-orange-500/20 border border-orange-500/40 rounded-full flex items-center justify-center">
+                    <Icons.Check className={clsx("w-3.5 h-3.5", isLockedTime ? "text-orange-500" : "text-orange-400")} />
                   </div>
                 )}
               </button>

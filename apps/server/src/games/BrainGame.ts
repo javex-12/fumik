@@ -70,17 +70,18 @@ export class BrainGame extends BaseGame {
     const player = room.players.find(p => p.id === socket.id);
     if (!player || !player.isConnected) return;
 
-    // Only record the FIRST answer submitted — no changing after the fact
-    if (room.gameState.playerAnswers[player.userId] !== undefined) return;
-
     const now = Date.now();
     const timeTaken = now - room.gameState.questionStartTime;
 
+    // Allow answer changes in the first 5 seconds (5000ms)
+    const isWithinFiveSeconds = timeTaken <= 5000;
+
+    if (!isWithinFiveSeconds && room.gameState.playerAnswers[player.userId] !== undefined) return;
+
     room.gameState.playerAnswers[player.userId] = { answerIndex, timeTaken };
 
-    // Do NOT broadcast live answers so other players can't see what was chosen
-    // Only emit a personal ack to the answering player
-    socket.emit('brain:answerAck', { submitted: true });
+    // Emit confirmation, indicating if the answer is locked (after 5s)
+    socket.emit('brain:answerAck', { answerIndex, locked: !isWithinFiveSeconds });
   }
 
   private endRound(io: Server, room: Room) {

@@ -3,6 +3,7 @@
 import { useSocket } from "@/lib/socket";
 import { motion, AnimatePresence } from "framer-motion";
 import BrainGame from "@/components/BrainGame";
+import ClickerGame from "@/components/ClickerGame";
 import GameReadyScreen from "@/components/GameReadyScreen";
 import ProfileModal from "@/components/ProfileModal";
 import * as Icons from "lucide-react";
@@ -20,6 +21,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const [isMounted, setIsMounted] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [linkTimeout, setLinkTimeout] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<'brain' | 'clicker'>('brain');
   const router = useRouter();
   const recoveryAttempted = useRef(false);
 
@@ -64,7 +66,10 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
   const renderGame = () => {
     if (room.gameStatus === 'readying') return <GameReadyScreen />;
-    if (room.gameStatus === 'playing' && room.currentGame === 'brain') return <BrainGame />;
+    if (room.gameStatus === 'playing') {
+      if (room.currentGame === 'brain') return <BrainGame />;
+      if (room.currentGame === 'clicker') return <ClickerGame />;
+    }
     return null;
   };
 
@@ -78,7 +83,9 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 px-4 py-2 rounded-full flex items-center gap-4 shadow-2xl">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-              <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">BRAIN WAR</span>
+              <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">
+                {room.currentGame === 'clicker' ? 'TAP SPEED RUN' : 'BRAIN WAR'}
+              </span>
             </div>
             <div className="w-px h-4 bg-slate-800" />
             <div className="flex gap-2">
@@ -166,55 +173,113 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
           <div className="lg:col-span-4">
             <div className="bg-slate-900/60 backdrop-blur-xl rounded-[2rem] border border-slate-800 p-8 shadow-2xl flex flex-col items-center text-center space-y-6 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 blur-[60px] rounded-full" />
-              <div className="w-20 h-20 bg-slate-950 rounded-3xl flex items-center justify-center border border-slate-800 shadow-2xl relative z-10"><Icons.Brain className="w-10 h-10 text-orange-500 animate-pulse" /></div>
-              <div className="space-y-2 relative z-10"><h3 className="font-black text-white text-2xl italic uppercase tracking-tight">BRAIN WAR</h3><p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">{isHost ? "Ready to launch simulation?" : "Awaiting host authorization..."}</p></div>
               
-              {/* Preferences selector */}
-              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-4 text-left z-10">
-                <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">Sync Game Preferences</div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Niche Category</label>
-                    <select 
-                      value={me?.niche || "mixed trivia"} 
-                      onChange={(e) => socket?.emit('player:preferences', { code: room.code, niche: e.target.value, difficulty: me?.difficulty || 'medium' })}
-                      className="w-full bg-slate-900 border border-slate-800 px-3 py-2.5 rounded-xl text-[10px] font-black text-white uppercase outline-none focus:border-orange-500"
-                    >
-                      <option value="mixed trivia">Mixed Trivia</option>
-                      <option value="science">Science & Space</option>
-                      <option value="history">History</option>
-                      <option value="geography">Geography</option>
-                      <option value="technology">Technology & Programming</option>
-                      <option value="pop culture">Pop Culture & Movies</option>
-                      <option value="literature">Literature</option>
-                      <option value="sports">Sports</option>
-                      <option value="art">Fine Arts</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Difficulty Level</label>
-                    <div className="grid grid-cols-3 gap-1.5">
-                      {(['easy', 'medium', 'hard'] as const).map(d => (
-                        <button
-                          key={d}
-                          onClick={() => socket?.emit('player:preferences', { code: room.code, niche: me?.niche || 'mixed trivia', difficulty: d })}
-                          className={clsx(
-                            "py-2 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all",
-                            (me?.difficulty || 'medium') === d ? "bg-orange-500 text-white font-black" : "bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-700"
-                          )}
-                        >
-                          {d}
-                        </button>
-                      ))}
+              {/* Game Selector Toggle for Host */}
+              {isHost && (
+                <div className="w-full flex bg-slate-950 p-1.5 rounded-2xl border border-slate-800 relative z-10">
+                  <button 
+                    onClick={() => setSelectedGame('brain')} 
+                    className={clsx(
+                      "flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all", 
+                      selectedGame === 'brain' ? "bg-orange-500 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
+                    )}
+                  >
+                    Brain War
+                  </button>
+                  <button 
+                    onClick={() => setSelectedGame('clicker')} 
+                    className={clsx(
+                      "flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all", 
+                      selectedGame === 'clicker' ? "bg-orange-500 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
+                    )}
+                  >
+                    Tap Speed Run
+                  </button>
+                </div>
+              )}
+
+              <div className="w-20 h-20 bg-slate-950 rounded-3xl flex items-center justify-center border border-slate-800 shadow-2xl relative z-10">
+                {selectedGame === 'brain' ? (
+                  <Icons.Brain className="w-10 h-10 text-orange-500 animate-pulse" />
+                ) : (
+                  <Icons.Zap className="w-10 h-10 text-orange-500 animate-bounce" />
+                )}
+              </div>
+
+              <div className="space-y-2 relative z-10">
+                <h3 className="font-black text-white text-2xl italic uppercase tracking-tight">
+                  {selectedGame === 'brain' ? 'BRAIN WAR' : 'TAP SPEED RUN'}
+                </h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
+                  {isHost ? "Ready to launch simulation?" : "Awaiting host authorization..."}
+                </p>
+              </div>
+              
+              {selectedGame === 'brain' ? (
+                /* Preferences selector for Brain War */
+                <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-4 text-left z-10">
+                  <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">Sync Game Preferences</div>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Niche Category</label>
+                      <select 
+                        value={me?.niche || "mixed trivia"} 
+                        onChange={(e) => socket?.emit('player:preferences', { code: room.code, niche: e.target.value, difficulty: me?.difficulty || 'medium' })}
+                        className="w-full bg-slate-900 border border-slate-800 px-3 py-2.5 rounded-xl text-[10px] font-black text-white uppercase outline-none focus:border-orange-500"
+                      >
+                        <option value="mixed trivia">Mixed Trivia</option>
+                        <option value="science">Science & Space</option>
+                        <option value="history">History</option>
+                        <option value="geography">Geography</option>
+                        <option value="technology">Technology & Programming</option>
+                        <option value="pop culture">Pop Culture & Movies</option>
+                        <option value="literature">Literature</option>
+                        <option value="sports">Sports</option>
+                        <option value="art">Fine Arts</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Difficulty Level</label>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {(['easy', 'medium', 'hard'] as const).map(d => (
+                          <button
+                            key={d}
+                            onClick={() => socket?.emit('player:preferences', { code: room.code, niche: me?.niche || 'mixed trivia', difficulty: d })}
+                            className={clsx(
+                              "py-2 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all",
+                              (me?.difficulty || 'medium') === d ? "bg-orange-500 text-white font-black" : "bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-700"
+                            )}
+                          >
+                            {d}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                /* Clicker game description */
+                <div className="w-full bg-slate-950/60 p-5 rounded-2xl border border-slate-800 text-left z-10 space-y-2">
+                  <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">Game Instructions</div>
+                  <p className="text-[9px] font-medium text-slate-400 leading-relaxed uppercase">
+                    A frantic clicking frenzy! Smash the button as fast as you can. The player with the highest click count wins the round. Warm up your fingers!
+                  </p>
+                </div>
+              )}
 
               {isHost ? (
-                <button onClick={() => socket?.emit('game:start', { code: room.code })} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-3 relative z-10"><Icons.PlayCircle className="w-5 h-5" />INITIATE</button>
+                <button 
+                  onClick={() => socket?.emit('game:start', { code: room.code, gameType: selectedGame })} 
+                  className="w-full bg-orange-600 hover:bg-orange-500 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-3 relative z-10"
+                >
+                  <Icons.PlayCircle className="w-5 h-5" />
+                  INITIATE
+                </button>
               ) : (
-                <div className="w-full p-6 rounded-2xl bg-slate-950/50 border border-slate-800 border-dashed relative z-10"><div className="w-6 h-6 border-2 border-orange-500/20 border-t-orange-500 rounded-full animate-spin mx-auto mb-3" /><p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Neural Link Syncing...</p></div>
+                <div className="w-full p-6 rounded-2xl bg-slate-950/50 border border-slate-800 border-dashed relative z-10">
+                  <div className="w-6 h-6 border-2 border-orange-500/20 border-t-orange-500 rounded-full animate-spin mx-auto mb-3" />
+                  <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Awaiting Host Selection...</p>
+                </div>
               )}
             </div>
           </div>
