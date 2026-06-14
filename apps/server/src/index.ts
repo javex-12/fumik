@@ -90,17 +90,34 @@ io.on('connection', (socket) => {
       if (!isMongoConnected()) {
         let user = Array.from(inMemoryUsers.values()).find(u => u.token === token);
         if (!user) {
-          if (Array.from(inMemoryUsers.values()).some(u => u.username === normalizedName)) return socket.emit('social:registered', { ok: false, error: 'Name taken.' });
-          const mockId = 'mem_' + Math.random().toString(36).substr(2, 9);
-          user = { _id: mockId, username: normalizedName, token, avatar, isOnline: true, friends: [], friendRequests: [] };
-          inMemoryUsers.set(mockId, user);
+          // Passwordless device-link: If name exists in memory, adopt the new token
+          let existingUser = Array.from(inMemoryUsers.values()).find(u => u.username === normalizedName);
+          if (existingUser) {
+            existingUser.token = token;
+            existingUser.avatar = avatar;
+            existingUser.isOnline = true;
+            user = existingUser;
+          } else {
+            const mockId = 'mem_' + Math.random().toString(36).substr(2, 9);
+            user = { _id: mockId, username: normalizedName, token, avatar, isOnline: true, friends: [], friendRequests: [] };
+            inMemoryUsers.set(mockId, user);
+          }
         } else { user.avatar = avatar; user.isOnline = true; }
         finalUser = user;
       } else {
         let user = await User.findOne({ token });
         if (!user) {
-          if (await User.findOne({ username: normalizedName })) return socket.emit('social:registered', { ok: false, error: 'Name taken.' });
-          user = new User({ username: normalizedName, token, avatar, isOnline: true });
+          // Passwordless device-link: If name exists in DB, adopt the new token
+          let existingUser = await User.findOne({ username: normalizedName });
+          if (existingUser) {
+            existingUser.token = token;
+            existingUser.avatar = avatar;
+            existingUser.isOnline = true;
+            await existingUser.save();
+            user = existingUser;
+          } else {
+            user = new User({ username: normalizedName, token, avatar, isOnline: true });
+          }
         } else { user.avatar = avatar; user.isOnline = true; user.lastSeen = new Date(); }
         await user.save();
         finalUser = { _id: user._id.toString(), username: user.username, avatar: user.avatar };
@@ -134,7 +151,7 @@ io.on('connection', (socket) => {
     if (!fromUser) return;
     
     if (isMongoConnected()) {
-      await User.findByIdAndUpdate(toUserId, { $addToSet: { friendRequests: fromUserId } });
+      await User.findByIdAndUpdate(toUserId, { $addToSet: { friendRequests: new mongoose.Types.ObjectId(fromUserId) } });
     } else {
       const tu = inMemoryUsers.get(toUserId);
       if (tu && !tu.friendRequests.includes(fromUserId)) tu.friendRequests.push(fromUserId);
@@ -151,8 +168,13 @@ io.on('connection', (socket) => {
       if (!me || !them) return;
 
       if (isMongoConnected()) {
-        await User.findByIdAndUpdate(myUserId, { $addToSet: { friends: fromUserId }, $pull: { friendRequests: fromUserId } });
-        await User.findByIdAndUpdate(fromUserId, { $addToSet: { friends: myUserId } });
+        await User.findByIdAndUpdate(myUserId, { 
+          $addToSet: { friends: new mongoose.Types.ObjectId(fromUserId) }, 
+          $pull: { friendRequests: new mongoose.Types.ObjectId(fromUserId) } 
+        });
+        await User.findByIdAndUpdate(fromUserId, { 
+          $addToSet: { friends: new mongoose.Types.ObjectId(myUserId) } 
+        });
       } else {
         if (!me.friends.includes(fromUserId)) me.friends.push(fromUserId);
         me.friendRequests = me.friendRequests.filter((id: string) => id !== fromUserId);
@@ -222,6 +244,27 @@ io.on('connection', (socket) => {
     }
   });
 
+  socket.on('room:leave', ({ code }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    
+    room.players = room.players.filter(p => p.id !== socket.id);
+    
+    if (room.players.length === 0) {
+      rooms.delete(code);
+    } else {
+      const hostExists = room.players.some(p => p.isHost && p.isConnected);
+      if (!hostExists) {
+        const nextHost = room.players.find(p => p.isConnected);
+        if (nextHost) nextHost.isHost = true;
+      }
+      io.to(code).emit('room:update', room);
+    }
+    
+    socket.leave(code);
+    socket.emit('room:left');
+  });
+
   socket.on('game:start', async ({ code }) => {
     const room = rooms.get(code);
     if (!room || room.players.find(p => p.id === socket.id)?.isHost === false) return;
@@ -239,6 +282,23 @@ io.on('connection', (socket) => {
     const p = room.players.find(x => x.id === socket.id);
     if (p) { p.isReady = true; io.to(code).emit('room:update', room); if (room.players.filter(x => x.isConnected).every(x => x.isReady)) { room.gameStatus = 'playing'; io.to(code).emit('room:update', room); gameRegistry.get('brain')?.start(io, room); } }
   });
+
+  socket.on('game:abort', ({ code }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    
+    const p = room.players.find(x => x.id === socket.id);
+    if (!p || !p.isHost) return;
+    
+    room.currentGame = null;
+    room.gameStatus = 'lobby';
+    room.gameState = null;
+    room.players.forEach(p => p.isReady = false);
+    
+    io.to(code).emit('room:update', room);
+    io.to(code).emit('system:narrator', { message: "Match aborted by sector commander." });
+  });
+
 
   socket.on('game:input', ({ code, data }) => {
     const room = rooms.get(code);

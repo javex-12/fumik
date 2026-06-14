@@ -6,13 +6,27 @@ import * as Icons from "lucide-react";
 import clsx from "clsx";
 
 export default function NeuralNotifications() {
-  const { notifications, removeNotification, joinRoom, socket } = useSocket();
+  const { notifications, removeNotification, joinRoom, acceptFriendRequest, declineFriendRequest } = useSocket();
 
   const handleAcceptInvite = (notif: NeuralNotification) => {
     const myName = localStorage.getItem('fumik_user_name') || 'Legend';
     const myAvatar = localStorage.getItem('fumik_user_avatar') || 'default';
     if (notif.roomCode) {
       joinRoom(notif.roomCode, myName, myAvatar);
+    }
+    removeNotification(notif.id);
+  };
+
+  const handleAcceptFriendRequest = (notif: NeuralNotification) => {
+    if (notif.fromUserId) {
+      acceptFriendRequest(notif.fromUserId);
+    }
+    removeNotification(notif.id);
+  };
+
+  const handleDeclineFriendRequest = (notif: NeuralNotification) => {
+    if (notif.fromUserId) {
+      declineFriendRequest(notif.fromUserId);
     }
     removeNotification(notif.id);
   };
@@ -29,6 +43,7 @@ export default function NeuralNotifications() {
             className={clsx(
               "pointer-events-auto p-5 rounded-2xl border-2 shadow-2xl backdrop-blur-xl relative overflow-hidden",
               n.type === 'invite' ? "bg-orange-600 border-orange-400" : 
+              n.type === 'friend-request' ? "bg-slate-900 border-orange-500/40 text-white shadow-[0_0_30px_rgba(249,115,22,0.15)]" :
               n.type === 'error' ? "bg-red-950/90 border-red-500 text-red-100" :
               "bg-slate-900/90 border-slate-700 text-white"
             )}
@@ -39,13 +54,15 @@ export default function NeuralNotifications() {
                 n.type === 'invite' ? "bg-white/20" : "bg-slate-800"
               )}>
                 {n.type === 'invite' ? <Icons.Gamepad2 className="w-5 h-5 text-white" /> : 
+                 n.type === 'friend-request' ? <Icons.UserPlus className="w-5 h-5 text-orange-500" /> :
                  n.type === 'error' ? <Icons.AlertTriangle className="w-5 h-5 text-red-500" /> :
                  <Icons.Bell className="w-5 h-5 text-orange-500" />}
               </div>
               
               <div className="flex-1">
                 <div className="text-[10px] font-black uppercase tracking-widest opacity-60 mb-1">
-                  {n.type === 'invite' ? 'Neural Summon' : 'System Signal'}
+                  {n.type === 'invite' ? 'Neural Summon' : 
+                   n.type === 'friend-request' ? 'Link Request' : 'System Signal'}
                 </div>
                 <div className="text-sm font-bold leading-tight">{n.message}</div>
                 
@@ -62,6 +79,23 @@ export default function NeuralNotifications() {
                       className="px-4 py-2 border border-white/20 text-white rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-white/10"
                     >
                       Reject
+                    </button>
+                  </div>
+                )}
+
+                {n.type === 'friend-request' && (
+                  <div className="flex gap-2 mt-4">
+                    <button 
+                      onClick={() => handleAcceptFriendRequest(n)}
+                      className="flex-1 bg-orange-600 text-white py-2 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 transition-colors"
+                    >
+                      Accept Link
+                    </button>
+                    <button 
+                      onClick={() => handleDeclineFriendRequest(n)}
+                      className="px-4 py-2 bg-slate-800 text-slate-400 rounded-lg font-black text-[10px] uppercase tracking-widest hover:bg-slate-700 hover:text-white transition-colors"
+                    >
+                      Ignore
                     </button>
                   </div>
                 )}

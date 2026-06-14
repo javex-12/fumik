@@ -7,10 +7,11 @@ import { useRouter } from 'next/navigation';
 
 export interface NeuralNotification {
   id: string;
-  type: 'info' | 'success' | 'error' | 'invite';
+  type: 'info' | 'success' | 'error' | 'invite' | 'friend-request';
   message: string;
   fromName?: string;
   roomCode?: string;
+  fromUserId?: string;
 }
 
 interface SocketContextType {
@@ -127,8 +128,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketInstance.on('social:friends-updated', () => syncSocialData(socketInstance));
     socketInstance.on('social:search-results', (results) => setSearchResults(results));
     
-    socketInstance.on('social:friend-request', ({ fromName }) => {
-      addNotification(`Incoming link request from ${fromName}`, 'info');
+    socketInstance.on('social:friend-request', ({ fromUserId, fromName }) => {
+      addNotification(`Incoming link request from ${fromName}`, 'friend-request', { fromUserId });
       syncSocialData(socketInstance);
     });
 

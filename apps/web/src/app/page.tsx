@@ -55,6 +55,7 @@ export default function LandingPage() {
     if (!name.trim()) return setNameError('Legend name required.');
     if (!isConnected) return setNameError('System offline.');
     registerSocial(name, selectedAvatar);
+    localStorage.setItem('fumik_user_name', name.trim());
     localStorage.setItem('fumik_user_avatar', selectedAvatar);
   };
 
