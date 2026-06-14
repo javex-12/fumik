@@ -33,8 +33,8 @@ export default function LandingPage() {
   // Only access localStorage after hydration (isMounted guard below ensures this).
   const storedSocialId = typeof window !== 'undefined' ? localStorage.getItem('fumik_social_id') : null;
   const myIds = [socialUserId, userId, storedSocialId].filter(Boolean);
-  const otherUsers = onlineUsers.filter(u => !myIds.includes(u.userId) && u.name !== name);
-  const otherFriends = friends.filter(f => !myIds.includes(f.userId) && f.name !== name);
+  const otherUsers = onlineUsers.filter(u => u && u.userId && !myIds.includes(u.userId) && u.name !== name);
+  const otherFriends = friends.filter(f => f && f.userId && !myIds.includes(f.userId) && f.name !== name);
 
   const [step, setStep] = useState<'splash' | 'onboarding' | 'dashboard'>('splash');
   const [isMounted, setIsMounted] = useState(false);
