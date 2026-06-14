@@ -7,7 +7,8 @@ import GameReadyScreen from "@/components/GameReadyScreen";
 import ProfileModal from "@/components/ProfileModal";
 import * as Icons from "lucide-react";
 import clsx from "clsx";
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
+import { useRouter } from "next/navigation";
 import dynamic from 'next/dynamic';
 
 const CommunicationSuite = dynamic(() => import("@/components/CommunicationSuite"), { ssr: false });
@@ -18,14 +19,45 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const { room, socket, isConnected, userId, leaveRoom, abortGame } = useSocket();
   const [isMounted, setIsMounted] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [linkTimeout, setLinkTimeout] = useState(false);
+  const router = useRouter();
+  const recoveryAttempted = useRef(false);
 
   useEffect(() => { setIsMounted(true); }, []);
 
+  // Auto-recover: if we land here with no room (e.g. invite on mobile),
+  // emit room:get so the server rehydrates the room state.
+  useEffect(() => {
+    if (!socket || !isConnected || room || recoveryAttempted.current) return;
+    recoveryAttempted.current = true;
+    const savedName = localStorage.getItem('fumik_user_name') || 'Legend';
+    const savedAvatar = localStorage.getItem('fumik_user_avatar') || 'default';
+    socket.emit('room:join', { code, name: savedName, avatar: savedAvatar, userId });
+  }, [socket, isConnected, room, code, userId]);
+
+  // Show an escape hatch after 8 seconds if still no room
+  useEffect(() => {
+    if (room) return;
+    const t = setTimeout(() => setLinkTimeout(true), 8000);
+    return () => clearTimeout(t);
+  }, [room]);
+
   if (!isMounted || !room) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center">
-        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-6" />
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-8 text-center gap-6">
+        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
         <div className="text-white font-black uppercase tracking-widest text-lg animate-pulse">Linking Sector...</div>
+        {linkTimeout && (
+          <div className="space-y-3">
+            <p className="text-slate-500 text-xs uppercase tracking-widest">Sector not found or session expired.</p>
+            <button
+              onClick={() => router.push('/')}
+              className="px-6 py-3 bg-orange-600 hover:bg-orange-500 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all"
+            >
+              Return to Base
+            </button>
+          </div>
+        )}
       </div>
     );
   }
