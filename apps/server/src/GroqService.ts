@@ -84,7 +84,10 @@ const FALLBACK_QUESTIONS = [
 ];
 
 export class GroqService {
-  static async generateQuestions(category: string, count: number = 5, difficulty: string = "medium", retryCount = 0): Promise<any[] | null> {
+  static async generateQuestions(category: string | string[], count: number = 5, difficulty: string | string[] = "medium", retryCount = 0): Promise<any[] | null> {
+    const categoriesStr = Array.isArray(category) ? category.join(', ') : category;
+    const difficultyStr = Array.isArray(difficulty) ? difficulty.join(', ') : difficulty;
+
     if (!GROQ_API_KEY) {
       console.warn("⚠️  GROQ_API_KEY missing. Using fallback questions.");
       const shuffled = [...FALLBACK_QUESTIONS].sort(() => Math.random() - 0.5);
@@ -105,7 +108,7 @@ export class GroqService {
             messages: [
               {
                 role: "system",
-                content: `You are FUMIK OS AI trivia engine. Generate ${count} fun, engaging trivia questions about ${category} at ${difficulty} difficulty level. 
+                content: `You are FUMIK OS AI trivia engine. Generate ${count} fun, engaging trivia questions distributed across these categories: ${categoriesStr}. Use a mix of these difficulty levels: ${difficultyStr}. 
                 Ensure extreme variety. Seed: ${Date.now()}_${Math.random()}.
                 Return ONLY a JSON object with a 'questions' array.
                 Structure: id (unique), category, question, options (4 strings), correctIndex (0-3), difficulty.`

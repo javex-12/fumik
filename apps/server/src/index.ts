@@ -301,35 +301,14 @@ io.on('connection', (socket) => {
 
     // Aggregate player preferences (niches/categories and difficulties)
     const activePlayers = room.players.filter(p => p.isConnected);
-    
-    const nicheCounts: Record<string, number> = {};
-    activePlayers.forEach(p => {
-      if (p.niche) nicheCounts[p.niche] = (nicheCounts[p.niche] || 0) + 1;
-    });
-    let selectedNiche = 'mixed trivia';
-    let maxNicheCount = 0;
-    Object.entries(nicheCounts).forEach(([niche, count]) => {
-      if (count > maxNicheCount) {
-        maxNicheCount = count;
-        selectedNiche = niche;
-      }
-    });
+    const niches = Array.from(new Set(activePlayers.map(p => p.niche || 'mixed trivia')));
+    const difficulties = Array.from(new Set(activePlayers.map(p => p.difficulty || 'medium')));
 
-    const diffCounts: Record<string, number> = {};
-    activePlayers.forEach(p => {
-      if (p.difficulty) diffCounts[p.difficulty] = (diffCounts[p.difficulty] || 0) + 1;
-    });
-    let selectedDifficulty = 'medium';
-    let maxDiffCount = 0;
-    Object.entries(diffCounts).forEach(([diff, count]) => {
-      if (count > maxDiffCount) {
-        maxDiffCount = count;
-        selectedDifficulty = diff;
-      }
-    });
+    const displayNiches = niches.map(n => n.toUpperCase()).join(" + ");
+    const displayDiffs = difficulties.map(d => d.toUpperCase()).join(" & ");
 
-    io.to(code).emit('system:narrator', { message: `Synthesizing ${selectedNiche.toUpperCase()} patterns (${selectedDifficulty.toUpperCase()})...` });
-    const qs = await GroqService.generateQuestions(selectedNiche, 10, selectedDifficulty);
+    io.to(code).emit('system:narrator', { message: `Synthesizing ${displayNiches} patterns (${displayDiffs})...` });
+    const qs = await GroqService.generateQuestions(niches, 10, difficulties);
     if (qs) { room.gameState = { ...room.gameState, aiQuestions: qs }; io.to(code).emit('system:narrator', { message: "AI dataset injected." }); }
     else io.to(code).emit('system:narrator', { message: "AI link error." });
   });

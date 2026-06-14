@@ -256,17 +256,19 @@ export default function BrainGame() {
               >
                 <div className="relative z-10">{option}</div>
                 
-                {/* Players who chose this */}
-                <div className="absolute bottom-4 right-4 flex -space-x-3 overflow-hidden p-1">
-                  {Object.entries(playerAnswers).map(([uid, ans]: [string, any]) => {
-                    const p = room?.players.find(rp => rp.userId === uid);
-                    return ans.answerIndex === index && (
-                      <div key={uid} className="w-10 h-10 rounded-xl border-2 border-slate-950 bg-slate-900 overflow-hidden shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
-                        <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p?.avatar}`} className="w-full h-full object-cover" />
-                      </div>
-                    );
-                  })}
-                </div>
+                {/* Players who chose this — ONLY show during reveal phase */}
+                {status === 'reveal' && (
+                  <div className="absolute bottom-4 right-4 flex -space-x-3 overflow-hidden p-1">
+                    {Object.entries(playerAnswers).map(([uid, ans]: [string, any]) => {
+                      const p = room?.players.find(rp => rp.userId === uid);
+                      return ans.answerIndex === index && (
+                        <div key={uid} className="w-10 h-10 rounded-xl border-2 border-slate-950 bg-slate-900 overflow-hidden shadow-lg transform translate-y-2 group-hover:translate-y-0 transition-transform">
+                          <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p?.avatar}`} className="w-full h-full object-cover" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </button>
             );
           })}
