@@ -58,7 +58,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [friends, setFriends] = useState<any[]>([]);
   const [friendRequests, setFriendRequests] = useState<any[]>([]);
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [socialUserId, setSocialUserId] = useState<string | null>(null);
+  const [socialUserId, setSocialUserId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') return localStorage.getItem('fumik_social_id');
+    return null;
+  });
   const [isRegistering, setIsRegistering] = useState(false);
   const [narratorMessage, setNarratorMessage] = useState<string | null>(null);
   const [totalConnections, setTotalConnections] = useState(0);

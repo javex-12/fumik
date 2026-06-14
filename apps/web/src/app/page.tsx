@@ -22,11 +22,18 @@ const NeuralNotifications = dynamic(() => import("@/components/NeuralNotificatio
 
 export default function LandingPage() {
   const { 
-    createRoom, joinRoom, isConnected, socket,
+    createRoom, joinRoom, isConnected, socket, userId,
     onlineUsers, onlineCount, friends, friendRequests, searchResults,
     registerSocial, searchUsers, sendFriendRequest, acceptFriendRequest, declineFriendRequest, sendInvite,
     socialUserId, isRegistering, totalConnections, addNotification
   } = useSocket();
+
+  // Deduplicate self from the online list — guard against both socialUserId and
+  // the raw device userId so the filter works even before registration completes.
+  // Only access localStorage after hydration (isMounted guard below ensures this).
+  const storedSocialId = typeof window !== 'undefined' ? localStorage.getItem('fumik_social_id') : null;
+  const myIds = [socialUserId, userId, storedSocialId].filter(Boolean);
+  const otherUsers = onlineUsers.filter(u => !myIds.includes(u.userId));
 
   const [step, setStep] = useState<'splash' | 'onboarding' | 'dashboard'>('splash');
   const [isMounted, setIsMounted] = useState(false);
@@ -121,7 +128,7 @@ export default function LandingPage() {
             </div>
           )) : <div className="text-center text-slate-600 text-[8px] font-black uppercase pt-8">No nodes found</div>
         ) : socialTab === 'online' ? (
-          onlineUsers.filter(u => u.userId !== socialUserId).length > 0 ? onlineUsers.filter(u => u.userId !== socialUserId).map(user => (
+          otherUsers.length > 0 ? otherUsers.map(user => (
             <div key={user.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatar}`} /><div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-950" /></div>
