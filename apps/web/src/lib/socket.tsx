@@ -127,7 +127,10 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketInstance.on('social:total-connections', (count) => setTotalConnections(count));
     socketInstance.on('social:online-count', (count) => { setOnlineCount(count); syncSocialData(socketInstance); });
     socketInstance.on('social:online-list', (list) => setOnlineUsers(list));
-    socketInstance.on('social:friends-list', ({ friends: f, requests: r }) => { setFriends(f); setFriendRequests(r); });
+    socketInstance.on('social:friends-list', (data) => {
+      setFriends(data?.friends || []);
+      setFriendRequests(data?.requests || []);
+    });
     socketInstance.on('social:friends-updated', () => syncSocialData(socketInstance));
     socketInstance.on('social:search-results', (results) => setSearchResults(results));
     

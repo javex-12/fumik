@@ -119,10 +119,10 @@ export default function LandingPage() {
 
       <div className="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-hide">
         {searchQuery.length >= 2 ? (
-          searchResults.length > 0 ? searchResults.map(u => (
+          searchResults.filter(u => u && u.userId).length > 0 ? searchResults.filter(u => u && u.userId).map(u => (
             <div key={u.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between group">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.avatar}`} />{u.isOnline && <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-slate-950" />}</div>
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.avatar || 'default'}`} />{u.isOnline && <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-slate-950" />}</div>
                 <div className="text-[10px] font-black uppercase text-white truncate max-w-[80px]">{u.name}</div>
               </div>
               {isFriend(u.userId) ? <div className="text-orange-500/40 font-black text-[7px] uppercase tracking-widest px-2">Friends</div> : <button onClick={() => sendFriendRequest(u.userId)} className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-400 hover:bg-orange-600 hover:text-white transition-all"><Icons.UserPlus className="w-3.5 h-3.5" /></button>}
@@ -132,7 +132,7 @@ export default function LandingPage() {
           otherUsers.length > 0 ? otherUsers.map(user => (
             <div key={user.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatar}`} /><div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-950" /></div>
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user.avatar || 'default'}`} /><div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-950" /></div>
                 <div><div className="text-[10px] font-black uppercase text-white">{user.name}</div><div className="text-[7px] text-green-500/60 font-black uppercase">Active</div></div>
               </div>
               <div className="flex gap-2">
@@ -145,17 +145,17 @@ export default function LandingPage() {
           otherFriends.length > 0 ? otherFriends.map(f => (
             <div key={f.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${f.avatar}`} />{f.isOnline && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-950" />}</div>
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${f.avatar || 'default'}`} />{f.isOnline && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-950" />}</div>
                 <div><div className="text-[10px] font-black uppercase text-white">{f.name}</div><div className={clsx('text-[7px] font-black uppercase', f.isOnline ? 'text-green-500' : 'text-slate-600')}>{f.isOnline ? 'Active' : 'Offline'}</div></div>
               </div>
               {f.isOnline && <button onClick={() => sendInvite(f.userId, name)} className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white hover:bg-orange-500 transition-all"><Icons.Zap className="w-3.5 h-3.5" /></button>}
             </div>
           )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-20"><Icons.Heart className="w-8 h-8" /><p className="text-[8px] font-black uppercase tracking-widest">No friends yet</p></div>
         ) : (
-          friendRequests.length > 0 ? friendRequests.map(r => (
+          friendRequests.filter(r => r && r.userId).length > 0 ? friendRequests.filter(r => r && r.userId).map(r => (
             <div key={r.userId} className="p-3 rounded-xl bg-slate-950 border border-orange-500/20 flex items-center justify-between shadow-[0_0_20px_rgba(249,115,22,0.05)]">
               <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-lg overflow-hidden border border-orange-500/40"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${r.avatar}`} /></div>
+                <div className="w-8 h-8 rounded-lg overflow-hidden border border-orange-500/40"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${r.avatar || 'default'}`} /></div>
                 <div className="text-[10px] font-black uppercase text-white">{r.name}</div>
               </div>
               <div className="flex gap-2"><button onClick={() => acceptFriendRequest(r.userId)} className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center text-white"><Icons.Check className="w-3.5 h-3.5" /></button><button onClick={() => declineFriendRequest(r.userId)} className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400"><Icons.X className="w-3.5 h-3.5" /></button></div>

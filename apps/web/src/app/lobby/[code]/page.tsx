@@ -142,7 +142,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
             </h3>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {room.players.map((player) => (
+              {room.players.filter(p => p && p.userId).map((player) => (
                 <div key={player.userId} className={clsx("p-4 rounded-2xl border-2 flex items-center gap-4 transition-all relative overflow-hidden group", player.isConnected ? "bg-slate-900/60 border-slate-800" : "bg-slate-950/40 border-transparent opacity-30 grayscale")}>
                   <div className="relative flex-shrink-0">
                     <div className={clsx("w-12 h-12 rounded-xl overflow-hidden border-2", player.isHost ? "border-orange-500 shadow-lg shadow-orange-500/20" : "border-slate-700")}><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${player.avatar || 'default'}`} className="w-full h-full object-cover" /></div>
