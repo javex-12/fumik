@@ -62,36 +62,37 @@ export class BrainGame extends BaseGame {
     const { answerIndex } = data;
 
     const player = room.players.find(p => p.id === socket.id);
-    if (!player || !player.isConnected || room.gameState.playerAnswers[player.userId] !== undefined) return;
+    if (!player || !player.isConnected) return;
 
-    const currentQuestion = room.gameState.currentQuestion;
-    const isCorrect = answerIndex === currentQuestion.correctIndex;
     const now = Date.now();
     const timeTaken = now - room.gameState.questionStartTime;
 
-    room.gameState.playerAnswers[player.userId] = { answerIndex, isCorrect, timeTaken };
+    room.gameState.playerAnswers[player.userId] = { answerIndex, timeTaken };
 
-    if (isCorrect) {
-      // Correct answer speed bonus
-      const points = Math.max(10, Math.floor(100 - (timeTaken / 100)));
-      player.score += points;
-    } else {
-      player.score -= 20;
-    }
-
-    const activePlayers = room.players.filter(p => p.isConnected);
-    if (Object.keys(room.gameState.playerAnswers).length === activePlayers.length) {
-      this.endRound(io, room);
-    }
+    io.to(room.code).emit('brain:liveAnswers', { playerAnswers: room.gameState.playerAnswers });
   }
 
   private endRound(io: Server, room: Room) {
     if (!room.gameState || room.currentGame !== 'brain') return;
 
-    clearTimeout(room.gameState.timer);
+    if (room.gameState.timer) clearTimeout(room.gameState.timer);
 
     const correctIndex = room.gameState.currentQuestion.correctIndex;
     
+    room.players.forEach(player => {
+      const ans = room.gameState.playerAnswers[player.userId];
+      if (ans) {
+        const isCorrect = ans.answerIndex === correctIndex;
+        ans.isCorrect = isCorrect;
+        if (isCorrect) {
+          const points = Math.max(10, Math.floor(100 - (ans.timeTaken / 100)));
+          player.score += points;
+        } else {
+          player.score -= 20;
+        }
+      }
+    });
+
     io.to(room.code).emit('brain:reveal', {
       correctIndex,
       playerAnswers: room.gameState.playerAnswers,
@@ -102,7 +103,15 @@ export class BrainGame extends BaseGame {
 
     if (room.gameState.round >= room.gameState.totalRounds) {
       setTimeout(() => {
-        this.end(io, room, "Match Complete");
+        const sorted = [...room.players].sort((a, b) => b.score - a.score);
+        const highestScore = sorted[0]?.score ?? 0;
+        const winners = room.players.filter(p => p.score === highestScore);
+        
+        io.to(room.code).emit('brain:gameover', { winner: winners });
+
+        setTimeout(() => {
+          this.end(io, room, winners);
+        }, 10000);
       }, 4000);
     } else {
       setTimeout(() => {

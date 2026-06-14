@@ -142,8 +142,21 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                     {player.isHost && <div className="absolute -top-1.5 -right-1.5 bg-orange-500 text-white p-1 rounded-md z-20 shadow-lg rotate-12"><Icons.Crown className="w-2.5 h-2.5" /></div>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-black text-white text-sm uppercase tracking-tight truncate flex items-center gap-2">{player.name}{player.userId === userId && <span className="text-[7px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-sm">YOU</span>}</div>
-                    <div className="flex items-center gap-2 mt-0.5"><div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" /><span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{player.score} INTELLIGENCE</span></div>
+                    <div className="font-black text-white text-sm uppercase tracking-tight truncate flex items-center gap-2">
+                      {player.name}
+                      {player.userId === userId && <span className="text-[7px] bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded-sm">YOU</span>}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <div className="flex items-center gap-1">
+                        <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
+                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{player.score} INT</span>
+                      </div>
+                      {player.niche && (
+                        <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-md text-[7px] font-black text-orange-500 uppercase tracking-wider">
+                          {player.niche} ({player.difficulty || 'medium'})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -155,6 +168,49 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
               <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/10 blur-[60px] rounded-full" />
               <div className="w-20 h-20 bg-slate-950 rounded-3xl flex items-center justify-center border border-slate-800 shadow-2xl relative z-10"><Icons.Brain className="w-10 h-10 text-orange-500 animate-pulse" /></div>
               <div className="space-y-2 relative z-10"><h3 className="font-black text-white text-2xl italic uppercase tracking-tight">BRAIN WAR</h3><p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">{isHost ? "Ready to launch simulation?" : "Awaiting host authorization..."}</p></div>
+              
+              {/* Preferences selector */}
+              <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-4 text-left z-10">
+                <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">Sync Game Preferences</div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Niche Category</label>
+                    <select 
+                      value={me?.niche || "mixed trivia"} 
+                      onChange={(e) => socket?.emit('player:preferences', { code: room.code, niche: e.target.value, difficulty: me?.difficulty || 'medium' })}
+                      className="w-full bg-slate-900 border border-slate-800 px-3 py-2.5 rounded-xl text-[10px] font-black text-white uppercase outline-none focus:border-orange-500"
+                    >
+                      <option value="mixed trivia">Mixed Trivia</option>
+                      <option value="science">Science & Space</option>
+                      <option value="history">History</option>
+                      <option value="geography">Geography</option>
+                      <option value="technology">Technology & Programming</option>
+                      <option value="pop culture">Pop Culture & Movies</option>
+                      <option value="literature">Literature</option>
+                      <option value="sports">Sports</option>
+                      <option value="art">Fine Arts</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Difficulty Level</label>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['easy', 'medium', 'hard'] as const).map(d => (
+                        <button
+                          key={d}
+                          onClick={() => socket?.emit('player:preferences', { code: room.code, niche: me?.niche || 'mixed trivia', difficulty: d })}
+                          className={clsx(
+                            "py-2 rounded-lg text-[8px] font-black uppercase tracking-wider transition-all",
+                            (me?.difficulty || 'medium') === d ? "bg-orange-500 text-white font-black" : "bg-slate-900 text-slate-500 border border-slate-800 hover:border-slate-700"
+                          )}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {isHost ? (
                 <button onClick={() => socket?.emit('game:start', { code: room.code })} className="w-full bg-orange-600 hover:bg-orange-500 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-[0.2em] transition-all shadow-xl shadow-orange-600/20 active:scale-95 flex items-center justify-center gap-3 relative z-10"><Icons.PlayCircle className="w-5 h-5" />INITIATE</button>
               ) : (
