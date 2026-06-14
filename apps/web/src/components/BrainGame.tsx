@@ -103,39 +103,38 @@ export default function BrainGame() {
   }
 
   return (
-    <div className="h-full bg-slate-950 text-white font-body p-6 md:p-12 overflow-y-auto scrollbar-hide">
-      <div className="max-w-4xl mx-auto space-y-12">
-        <header className="flex justify-between items-center bg-slate-900/40 backdrop-blur-xl p-8 rounded-[2.5rem] border border-slate-800 shadow-2xl">
-          <div className="space-y-1">
+    <div className="h-full w-full bg-slate-950 text-white font-body p-4 sm:p-6 md:p-12 overflow-y-auto scrollbar-hide flex flex-col items-center">
+      <div className="max-w-4xl w-full space-y-6 md:space-y-12">
+        <header className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-900/40 backdrop-blur-xl p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] border border-slate-800 shadow-2xl">
+          <div className="space-y-1 text-center sm:text-left">
              <div className="text-orange-500 font-black uppercase tracking-[0.4em] text-[10px]">Neural Protocol</div>
-             <div className="text-3xl font-black italic text-white uppercase tracking-tight">{currentQuestion?.category || 'MIXED TRIVIA'}</div>
+             <div className="text-2xl sm:text-3xl font-black italic text-white uppercase tracking-tight">{currentQuestion?.category || 'MIXED TRIVIA'}</div>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 md:gap-6">
              <div className="text-right">
-                <div className="text-slate-500 font-black uppercase tracking-widest text-[8px]">Time Remaining</div>
-                <div className={clsx("text-4xl font-mono font-bold tracking-tighter transition-colors", timeLeft < 3 ? "text-red-500 animate-pulse" : "text-white")}>
+                <div className="text-slate-500 font-black uppercase tracking-widest text-[8px]">Time</div>
+                <div className={clsx("text-3xl md:text-4xl font-mono font-bold tracking-tighter transition-colors", timeLeft < 3 ? "text-red-500 animate-pulse" : "text-white")}>
                   {Math.ceil(timeLeft)}s
                 </div>
              </div>
-             <div className="h-12 w-px bg-slate-800" />
+             <div className="h-10 md:h-12 w-px bg-slate-800" />
              <div className="text-left">
-                <div className="text-slate-500 font-black uppercase tracking-widest text-[8px]">Session Phase</div>
-                <div className="text-3xl font-black italic text-white">{round}<span className="text-slate-700 mx-1">/</span>{total}</div>
+                <div className="text-slate-500 font-black uppercase tracking-widest text-[8px]">Phase</div>
+                <div className="text-2xl md:text-3xl font-black italic text-white">{round}<span className="text-slate-700 mx-1">/</span>{total}</div>
              </div>
           </div>
         </header>
 
-        <div className="relative group">
-          <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-orange-600 rounded-[3rem] blur opacity-10 group-hover:opacity-20 transition duration-1000" />
-          <div className="relative bg-slate-900 border border-slate-800 p-12 md:p-20 rounded-[3rem] shadow-2xl flex flex-col items-center justify-center min-h-[300px] text-center overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
-            <h2 className="text-3xl md:text-5xl font-black italic leading-tight text-white relative z-10 uppercase tracking-tight">
+        <div className="relative group w-full">
+          <div className="absolute -inset-1 bg-gradient-to-r from-orange-500 to-orange-600 rounded-[2.5rem] md:rounded-[3rem] blur opacity-10" />
+          <div className="relative bg-slate-900 border border-slate-800 p-8 md:p-20 rounded-[2.5rem] md:rounded-[3rem] shadow-2xl flex flex-col items-center justify-center min-h-[200px] md:min-h-[300px] text-center overflow-hidden">
+            <h2 className="text-2xl md:text-5xl font-black italic leading-tight text-white relative z-10 uppercase tracking-tight">
               {currentQuestion?.question}
             </h2>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 pb-12">
           {currentQuestion?.options.map((option: string, index: number) => {
             let stateClass = "bg-slate-900 border-slate-800 text-slate-400 hover:border-orange-500/50 hover:bg-slate-800 hover:text-white";
             

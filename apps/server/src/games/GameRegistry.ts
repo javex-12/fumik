@@ -1,17 +1,16 @@
-import { Server, Socket } from 'socket.io';
-import { Room } from '@fumik/shared/types';
-import { IGame } from './BaseGame';
+import { BrainGame } from './BrainGame';
 
 class GameRegistry {
-  private games: Map<string, IGame> = new Map();
+  private games: Map<string, any> = new Map();
 
-  register(game: IGame) {
+  register(game: any) {
     this.games.set(game.type, game);
   }
 
-  get(type: string): IGame | undefined {
+  get(type: string): any | undefined {
     return this.games.get(type);
   }
 }
 
 export const gameRegistry = new GameRegistry();
+gameRegistry.register(new BrainGame());

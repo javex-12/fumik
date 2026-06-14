@@ -32,26 +32,40 @@ export class BallGame extends BaseGame {
     // Add walls
     const wallOptions = { isStatic: true };
     Matter.World.add(world, [
-      Matter.Bodies.rectangle(400, 0, 800, 50, wallOptions),    // Top
-      Matter.Bodies.rectangle(400, 600, 800, 50, wallOptions),  // Bottom
-      Matter.Bodies.rectangle(0, 300, 50, 600, wallOptions),    // Left
-      Matter.Bodies.rectangle(800, 300, 50, 600, wallOptions)   // Right
+      Matter.Bodies.rectangle(400, 0, 800, 50, wallOptions),
+      Matter.Bodies.rectangle(400, 600, 800, 50, wallOptions),
+      Matter.Bodies.rectangle(0, 300, 50, 600, wallOptions),
+      Matter.Bodies.rectangle(800, 300, 50, 600, wallOptions)
     ]);
 
     room.gameState = {
       status: 'starting',
-      playerBodies
+      playerBodies,
+      countdown: 3
     };
 
-    io.to(room.code).emit('ball:starting');
+    // Server-side countdown loop
+    let count = 3;
+    const countdownInterval = setInterval(() => {
+      io.to(room.code).emit('ball:starting', { countdown: count });
+      if (count <= 0) {
+        clearInterval(countdownInterval);
+        room.gameState.status = 'playing';
+        this.startPhysics(io, room, engine, playerBodies);
+      }
+      count--;
+    }, 1000);
+  }
 
+  private startPhysics(io: Server, room: Room, engine: Matter.Engine, playerBodies: Map<string, Matter.Body>) {
     const interval = setInterval(() => {
+      if (room.gameState.status !== 'playing') return;
       Matter.Engine.update(engine, 1000 / 60);
       
       const state = {
         players: Array.from(playerBodies.entries()).map(([userId, body]) => ({
           userId,
-          id: room.players.find(p => p.userId === userId)?.id, // for compatibility with old UI
+          id: room.players.find(p => p.userId === userId)?.id,
           x: body.position.x,
           y: body.position.y,
           velocity: body.velocity

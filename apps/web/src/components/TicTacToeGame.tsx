@@ -9,10 +9,15 @@ export default function TicTacToeGame() {
   const [board, setBoard] = useState(Array(9).fill(null));
   const [turn, setTurn] = useState("X");
   const [winner, setWinner] = useState<string | null>(null);
+  const [teams, setTeams] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!socket) return;
-    socket.on('tictactoe:start', (data) => { setBoard(data.board); setTurn(data.turn); });
+    socket.on('tictactoe:start', (data) => { 
+      setBoard(data.board); 
+      setTurn(data.turn); 
+      setTeams(data.teams);
+    });
     socket.on('tictactoe:update', (data) => { 
       setBoard(data.board); 
       setTurn(data.turn); 
@@ -22,7 +27,7 @@ export default function TicTacToeGame() {
   }, [socket]);
 
   const me = room?.players.find(p => p.userId === userId);
-  const myTeam = (me as any)?.team;
+  const myTeam = userId ? teams[userId] : null;
 
   return (
     <div className="h-full flex flex-col items-center justify-center bg-slate-950 font-body p-6">

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "nodemon --watch src --exec ts-node src/index.ts",
+    "dev": "nodemon --watch src --exec \"npx --yes ts-node src/index.ts\"",
     "build": "tsc",
     "start": "node dist/apps/server/src/index.js"
   },
