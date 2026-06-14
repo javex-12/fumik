@@ -226,16 +226,48 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="aspect-[16/9] sm:aspect-[21/9] rounded-[2rem] sm:rounded-[3rem] bg-slate-900 border border-slate-800 p-6 sm:p-12 flex flex-col justify-between relative overflow-hidden group">
-                     <div className="absolute top-0 right-0 w-64 h-64 sm:w-96 sm:h-96 bg-orange-600/5 blur-[60px] sm:blur-[100px]" />
+                  <div className="flex flex-col gap-4 lg:gap-6">
+                   {/* Brain War card */}
+                   <div className="aspect-[16/7] rounded-[2rem] sm:rounded-[3rem] bg-slate-900 border border-slate-800 p-6 sm:p-10 flex flex-col justify-between relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/5 blur-[60px]" />
                      <div className="flex justify-between items-start relative z-10">
-                        <div className="w-12 h-12 sm:w-20 sm:h-20 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-2xl"><Icons.Brain className="w-6 h-6 sm:w-10 sm:h-10 text-orange-500 animate-pulse" /></div>
-                        <div className="text-right"><div className="text-lg sm:text-3xl font-black italic text-white uppercase tracking-tighter leading-none">BRAIN WAR</div><div className="text-orange-500/60 text-[7px] sm:text-[10px] font-black uppercase tracking-[0.4em] mt-1 sm:mt-2">100% AI GENERATED</div></div>
+                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-2xl">
+                         <Icons.Brain className="w-6 h-6 sm:w-8 sm:h-8 text-orange-500 animate-pulse" />
+                       </div>
+                       <div className="text-right">
+                         <div className="text-lg sm:text-2xl font-black italic text-white uppercase tracking-tighter leading-none">BRAIN WAR</div>
+                         <div className="text-orange-500/60 text-[7px] sm:text-[9px] font-black uppercase tracking-[0.4em] mt-1">100% AI GENERATED</div>
+                       </div>
                      </div>
-                     <div className="flex items-end justify-between relative z-10 gap-4 mt-6">
-                         <div className="space-y-1"><div className="text-white font-black italic text-sm sm:text-2xl uppercase leading-none">Play Brain War</div><div className="text-slate-600 text-[6px] sm:text-[8px] font-black uppercase tracking-[0.4em]">Status: Ready to play</div></div>
-                         <button onClick={createNewRoom} className="bg-white text-black px-4 py-2 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[8px] sm:text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shrink-0 shadow-xl">Play Now</button>
+                     <div className="flex items-end justify-between relative z-10 gap-4 mt-4">
+                       <div className="space-y-1">
+                         <div className="text-white font-black italic text-sm sm:text-xl uppercase leading-none">Quiz & Win</div>
+                         <div className="text-slate-600 text-[6px] sm:text-[7px] font-black uppercase tracking-[0.4em]">Answer AI questions fastest</div>
+                       </div>
+                       <button onClick={createNewRoom} className="bg-white text-black px-4 py-2 sm:px-6 sm:py-3 rounded-xl font-black text-[8px] sm:text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shrink-0 shadow-xl">Play Now</button>
                      </div>
+                   </div>
+
+                   {/* Scribble Smash card */}
+                   <div className="aspect-[16/7] rounded-[2rem] sm:rounded-[3rem] bg-slate-900 border border-slate-800 p-6 sm:p-10 flex flex-col justify-between relative overflow-hidden group">
+                     <div className="absolute top-0 right-0 w-64 h-64 bg-purple-600/5 blur-[60px]" />
+                     <div className="flex justify-between items-start relative z-10">
+                       <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center shadow-2xl">
+                         <span className="text-2xl sm:text-3xl">🎨</span>
+                       </div>
+                       <div className="text-right">
+                         <div className="text-lg sm:text-2xl font-black italic text-white uppercase tracking-tighter leading-none">SCRIBBLE SMASH</div>
+                         <div className="text-purple-400/60 text-[7px] sm:text-[9px] font-black uppercase tracking-[0.4em] mt-1">DRAW WITH EMOJIS</div>
+                       </div>
+                     </div>
+                     <div className="flex items-end justify-between relative z-10 gap-4 mt-4">
+                       <div className="space-y-1">
+                         <div className="text-white font-black italic text-sm sm:text-xl uppercase leading-none">Draw &amp; Guess</div>
+                         <div className="text-slate-600 text-[6px] sm:text-[7px] font-black uppercase tracking-[0.4em]">Place emojis, others guess!</div>
+                       </div>
+                       <button onClick={createNewRoom} className="bg-white text-black px-4 py-2 sm:px-6 sm:py-3 rounded-xl font-black text-[8px] sm:text-xs uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all shrink-0 shadow-xl">Play Now</button>
+                     </div>
+                   </div>
                   </div>
                 </div>
 

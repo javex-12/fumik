@@ -94,7 +94,7 @@ export default function ScribbleGame() {
             <span className="text-4xl">🎨</span>
           </div>
           <h2 className="text-5xl md:text-7xl font-black italic text-orange-500 tracking-tighter animate-bounce uppercase">SCRIBBLE SMASH!</h2>
-          <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-xs">Calibrating Creative Channels...</p>
+          <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-xs">Setting up the game...</p>
         </motion.div>
       </div>
     );
@@ -108,9 +108,9 @@ export default function ScribbleGame() {
             animate={{ y: 0, opacity: 1 }}
             className="bg-slate-900/40 backdrop-blur-2xl p-16 max-w-2xl w-full border border-slate-800 rounded-[3rem] shadow-2xl z-10 space-y-8"
         >
-            <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">EXHIBITION ENDED</h2>
+            <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">Game Over!</h2>
             <div className="h-1 w-24 bg-orange-500 mx-auto rounded-full" />
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Archiving masterpieces...</p>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Back to lobby soon...</p>
         </motion.div>
       </div>
     );
@@ -127,7 +127,7 @@ export default function ScribbleGame() {
 
         {isDrawer && (
           <div className="hidden lg:flex flex-1 flex-col bg-slate-900 border border-slate-800 p-6 rounded-[2.5rem] overflow-hidden shadow-xl">
-            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Stamp Collection</h4>
+            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Pick an Emoji</h4>
             <div className="flex-1 overflow-y-auto pr-2 grid grid-cols-4 gap-2 scrollbar-hide">
               {EMOJIS.map(emoji => (
                 <button 
@@ -147,9 +147,9 @@ export default function ScribbleGame() {
       <div className="flex-1 flex flex-col gap-4 sm:gap-6 relative">
         <header className="flex justify-between items-center bg-slate-900/40 backdrop-blur-xl p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-slate-800 shadow-2xl">
           <div className="space-y-1">
-            <div className="text-orange-500 font-black uppercase tracking-[0.4em] text-[8px] sm:text-[10px]">Session Directive</div>
+          <div className="text-orange-500 font-black uppercase tracking-[0.4em] text-[8px] sm:text-[10px]">SCRIBBLE SMASH</div>
             <div className="text-lg sm:text-2xl font-black italic text-white uppercase tracking-tight">
-              {isDrawer ? "Drawing Mode" : "Analysis Mode"}
+              {isDrawer ? "🎨 Your Turn to Draw!" : "🔍 Guess the Word!"}
             </div>
           </div>
           {isDrawer && (
@@ -218,7 +218,7 @@ export default function ScribbleGame() {
       <div className="w-full lg:w-80 flex flex-col gap-4 sm:gap-6">
         <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] flex-1 flex flex-col overflow-hidden p-6 sm:p-8 shadow-2xl relative">
           <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/5 blur-3xl rounded-full" />
-          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">Neural Intercepts</h4>
+          <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] mb-6">Chat & Guesses</h4>
           <div className="flex-1 overflow-y-auto space-y-3 mb-6 scrollbar-hide relative z-10">
             {messages.map((m, i) => (
               <div 

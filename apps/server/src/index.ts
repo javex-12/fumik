@@ -305,10 +305,10 @@ io.on('connection', (socket) => {
     room.currentGame = gameType;
     room.players.forEach(p => p.isReady = false);
 
-    if (gameType === 'clicker') {
+    if (gameType === 'clicker' || gameType === 'scribble') {
       room.gameStatus = 'playing';
       io.to(code).emit('room:update', room);
-      gameRegistry.get('clicker')?.start(io, room);
+      gameRegistry.get(gameType)?.start(io, room);
     } else {
       room.gameStatus = 'readying';
       io.to(code).emit('room:update', room);

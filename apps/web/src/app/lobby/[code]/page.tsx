@@ -4,6 +4,7 @@ import { useSocket } from "@/lib/socket";
 import { motion, AnimatePresence } from "framer-motion";
 import BrainGame from "@/components/BrainGame";
 import ClickerGame from "@/components/ClickerGame";
+import ScribbleGame from "@/components/ScribbleGame";
 import GameReadyScreen from "@/components/GameReadyScreen";
 import ProfileModal from "@/components/ProfileModal";
 import * as Icons from "lucide-react";
@@ -21,7 +22,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
   const [isMounted, setIsMounted] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [linkTimeout, setLinkTimeout] = useState(false);
-  const [selectedGame, setSelectedGame] = useState<'brain' | 'clicker'>('brain');
+  const [selectedGame, setSelectedGame] = useState<'brain' | 'clicker' | 'scribble'>('brain');
   const router = useRouter();
   const recoveryAttempted = useRef(false);
 
@@ -69,6 +70,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
     if (room.gameStatus === 'playing') {
       if (room.currentGame === 'brain') return <BrainGame />;
       if (room.currentGame === 'clicker') return <ClickerGame />;
+      if (room.currentGame === 'scribble') return <ScribbleGame />;
     }
     return null;
   };
@@ -84,7 +86,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
               <span className="text-[9px] font-black text-white/50 uppercase tracking-widest">
-                {room.currentGame === 'clicker' ? 'TAP SPEED RUN' : 'BRAIN WAR'}
+              {room.currentGame === 'clicker' ? 'TAP SPEED RUN' : room.currentGame === 'scribble' ? 'SCRIBBLE SMASH' : 'BRAIN WAR'}
               </span>
             </div>
             <div className="w-px h-4 bg-slate-800" />
@@ -156,7 +158,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                     <div className="flex flex-wrap items-center gap-2 mt-1">
                       <div className="flex items-center gap-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]" />
-                        <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{player.score} INT</span>
+                            <span className="text-[8px] font-black text-slate-500 uppercase tracking-widest">{player.score} pts</span>
                       </div>
                       {player.niche && (
                         <span className="px-2 py-0.5 bg-orange-500/10 border border-orange-500/20 rounded-md text-[7px] font-black text-orange-500 uppercase tracking-wider">
@@ -193,7 +195,16 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                       selectedGame === 'clicker' ? "bg-orange-500 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
                     )}
                   >
-                    Tap Speed Run
+                    Tap Speed
+                  </button>
+                  <button 
+                    onClick={() => setSelectedGame('scribble')} 
+                    className={clsx(
+                      "flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all", 
+                      selectedGame === 'scribble' ? "bg-orange-500 text-white shadow-lg" : "text-slate-500 hover:text-slate-300"
+                    )}
+                  >
+                    Scribble
                   </button>
                 </div>
               )}
@@ -208,20 +219,20 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
 
               <div className="space-y-2 relative z-10">
                 <h3 className="font-black text-white text-2xl italic uppercase tracking-tight">
-                  {selectedGame === 'brain' ? 'BRAIN WAR' : 'TAP SPEED RUN'}
+                  {selectedGame === 'brain' ? 'BRAIN WAR' : selectedGame === 'clicker' ? 'TAP SPEED RUN' : 'SCRIBBLE SMASH'}
                 </h3>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">
-                  {isHost ? "Ready to launch simulation?" : "Awaiting host authorization..."}
+                  {isHost ? "Ready to launch?" : "Waiting for host..."}
                 </p>
               </div>
               
               {selectedGame === 'brain' ? (
                 /* Preferences selector for Brain War */
                 <div className="w-full bg-slate-950/60 p-4 rounded-2xl border border-slate-800 space-y-4 text-left z-10">
-                  <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">Sync Game Preferences</div>
+                  <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">Your Game Preferences</div>
                   <div className="space-y-3">
                     <div>
-                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Niche Category</label>
+                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Category</label>
                       <select 
                         value={me?.niche || "mixed trivia"} 
                         onChange={(e) => socket?.emit('player:preferences', { code: room.code, niche: e.target.value, difficulty: me?.difficulty || 'medium' })}
@@ -239,7 +250,7 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                       </select>
                     </div>
                     <div>
-                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Difficulty Level</label>
+                      <label className="text-[8px] font-black uppercase text-slate-500 block mb-1">Difficulty</label>
                       <div className="grid grid-cols-3 gap-1.5">
                         {(['easy', 'medium', 'hard'] as const).map(d => (
                           <button
@@ -257,12 +268,20 @@ export default function LobbyPage({ params }: { params: Promise<{ code: string }
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : selectedGame === 'clicker' ? (
                 /* Clicker game description */
                 <div className="w-full bg-slate-950/60 p-5 rounded-2xl border border-slate-800 text-left z-10 space-y-2">
-                  <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">Game Instructions</div>
+                  <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">How to Play</div>
                   <p className="text-[9px] font-medium text-slate-400 leading-relaxed uppercase">
-                    A frantic clicking frenzy! Smash the button as fast as you can. The player with the highest click count wins the round. Warm up your fingers!
+                    Tap the button as fast as you can! The player with the highest tap count when time runs out wins the round. Warm up those fingers!
+                  </p>
+                </div>
+              ) : (
+                /* Scribble game description */
+                <div className="w-full bg-slate-950/60 p-5 rounded-2xl border border-slate-800 text-left z-10 space-y-2">
+                  <div className="text-[9px] font-black uppercase text-orange-500 tracking-wider">How to Play</div>
+                  <p className="text-[9px] font-medium text-slate-400 leading-relaxed uppercase">
+                    One player draws using emojis, the rest guess the word! Score 100pts for guessing correctly. The drawer gets 50pts for each correct guess. Everyone takes turns drawing!
                   </p>
                 </div>
               )}
