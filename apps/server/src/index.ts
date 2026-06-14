@@ -158,7 +158,7 @@ io.on('connection', (socket) => {
     }
 
     if (target) io.to(target.socketId).emit('social:friend-request', { fromUserId, fromName: fromUser.username, fromAvatar: fromUser.avatar });
-    socket.emit('system:narrator', { message: "Request transmitted to target sector." });
+    socket.emit('system:narrator', { message: "Friend request sent." });
   });
 
   socket.on('social:accept-friend', async ({ myUserId, fromUserId }) => {
@@ -183,10 +183,10 @@ io.on('connection', (socket) => {
 
       const targetSocket = onlineUsers.get(fromUserId);
       if (targetSocket) {
-        io.to(targetSocket.socketId).emit('system:narrator', { message: `${me.username} accepted your link request!` });
+        io.to(targetSocket.socketId).emit('system:narrator', { message: `${me.username} accepted your friend request!` });
         io.to(targetSocket.socketId).emit('social:friends-updated');
       }
-      socket.emit('system:narrator', { message: `Neural link with ${them.username} confirmed.` });
+      socket.emit('system:narrator', { message: `You are now friends with ${them.username}.` });
       socket.emit('social:friends-updated');
     } catch (err) {}
   });
@@ -307,7 +307,7 @@ io.on('connection', (socket) => {
     const displayNiches = niches.map(n => n.toUpperCase()).join(" + ");
     const displayDiffs = difficulties.map(d => d.toUpperCase()).join(" & ");
 
-    io.to(code).emit('system:narrator', { message: `Synthesizing ${displayNiches} patterns (${displayDiffs})...` });
+    io.to(code).emit('system:narrator', { message: `Loading questions for ${displayNiches} (${displayDiffs})...` });
     const qs = await GroqService.generateQuestions(niches, 10, difficulties);
     if (qs) { room.gameState = { ...room.gameState, aiQuestions: qs }; io.to(code).emit('system:narrator', { message: "AI dataset injected." }); }
     else io.to(code).emit('system:narrator', { message: "AI link error." });

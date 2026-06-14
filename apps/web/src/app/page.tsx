@@ -100,12 +100,12 @@ export default function LandingPage() {
     <div className="flex flex-col h-full bg-slate-900 overflow-hidden">
       <div className="p-6 border-b border-slate-800 space-y-4">
         <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3"><Icons.Users className="w-5 h-5 text-orange-500" /><h4 className="font-black italic uppercase text-white text-sm">Neural Hub</h4></div>
-          <div className="px-2 py-0.5 bg-orange-500/10 rounded-full border border-orange-500/20 text-[8px] font-black text-orange-500 uppercase">{onlineCount} LIVE</div>
+          <div className="flex items-center gap-3"><Icons.Users className="w-5 h-5 text-orange-500" /><h4 className="font-black italic uppercase text-white text-sm">Players</h4></div>
+          <div className="px-2 py-0.5 bg-orange-500/10 rounded-full border border-orange-500/20 text-[8px] font-black text-orange-500 uppercase">{onlineCount} ONLINE</div>
         </div>
         <div className="relative">
           <Icons.Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-          <input type="text" value={searchQuery} onChange={e => handleSearch(e.target.value)} placeholder="SEARCH CALLSIGN..." className="w-full bg-slate-950 border border-slate-800 focus:border-orange-500 pl-9 pr-3 py-3 rounded-xl outline-none text-[10px] font-black text-white" />
+          <input type="text" value={searchQuery} onChange={e => handleSearch(e.target.value)} placeholder="SEARCH PLAYERS..." className="w-full bg-slate-950 border border-slate-800 focus:border-orange-500 pl-9 pr-3 py-3 rounded-xl outline-none text-[10px] font-black text-white" />
         </div>
         <div className="flex gap-1.5">
           {(['online','friends','requests'] as const).map(tab => (
@@ -125,9 +125,9 @@ export default function LandingPage() {
                 <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${u.avatar}`} />{u.isOnline && <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-slate-950" />}</div>
                 <div className="text-[10px] font-black uppercase text-white truncate max-w-[80px]">{u.name}</div>
               </div>
-              {isFriend(u.userId) ? <div className="text-orange-500/40 font-black text-[7px] uppercase tracking-widest px-2">Linked</div> : <button onClick={() => sendFriendRequest(u.userId)} className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-400 hover:bg-orange-600 hover:text-white transition-all"><Icons.UserPlus className="w-3.5 h-3.5" /></button>}
+              {isFriend(u.userId) ? <div className="text-orange-500/40 font-black text-[7px] uppercase tracking-widest px-2">Friends</div> : <button onClick={() => sendFriendRequest(u.userId)} className="w-8 h-8 rounded-lg bg-slate-900 flex items-center justify-center text-slate-400 hover:bg-orange-600 hover:text-white transition-all"><Icons.UserPlus className="w-3.5 h-3.5" /></button>}
             </div>
-          )) : <div className="text-center text-slate-600 text-[8px] font-black uppercase pt-8">No nodes found</div>
+          )) : <div className="text-center text-slate-600 text-[8px] font-black uppercase pt-8">No players found</div>
         ) : socialTab === 'online' ? (
           otherUsers.length > 0 ? otherUsers.map(user => (
             <div key={user.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
@@ -140,7 +140,7 @@ export default function LandingPage() {
                 <button onClick={() => sendInvite(user.userId, name)} className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white hover:bg-orange-500 transition-all"><Icons.Zap className="w-3.5 h-3.5" /></button>
               </div>
             </div>
-          )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-20"><Icons.Cpu className="w-8 h-8" /><p className="text-[8px] font-black uppercase tracking-widest">Scanning sectors...</p></div>
+          )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-20"><Icons.Users className="w-8 h-8" /><p className="text-[8px] font-black uppercase tracking-widest">No one online yet</p></div>
         ) : socialTab === 'friends' ? (
           otherFriends.length > 0 ? otherFriends.map(f => (
             <div key={f.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
@@ -150,7 +150,7 @@ export default function LandingPage() {
               </div>
               {f.isOnline && <button onClick={() => sendInvite(f.userId, name)} className="w-8 h-8 rounded-lg bg-orange-600 flex items-center justify-center text-white hover:bg-orange-500 transition-all"><Icons.Zap className="w-3.5 h-3.5" /></button>}
             </div>
-          )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-20"><Icons.Heart className="w-8 h-8" /><p className="text-[8px] font-black uppercase tracking-widest">Link empty</p></div>
+          )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-20"><Icons.Heart className="w-8 h-8" /><p className="text-[8px] font-black uppercase tracking-widest">No friends yet</p></div>
         ) : (
           friendRequests.length > 0 ? friendRequests.map(r => (
             <div key={r.userId} className="p-3 rounded-xl bg-slate-950 border border-orange-500/20 flex items-center justify-between shadow-[0_0_20px_rgba(249,115,22,0.05)]">
@@ -160,7 +160,7 @@ export default function LandingPage() {
               </div>
               <div className="flex gap-2"><button onClick={() => acceptFriendRequest(r.userId)} className="w-8 h-8 rounded-lg bg-green-600 flex items-center justify-center text-white"><Icons.Check className="w-3.5 h-3.5" /></button><button onClick={() => declineFriendRequest(r.userId)} className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-slate-400"><Icons.X className="w-3.5 h-3.5" /></button></div>
             </div>
-          )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-20"><Icons.Bell className="w-8 h-8" /><p className="text-[8px] font-black uppercase tracking-widest">No signals</p></div>
+          )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-20"><Icons.Bell className="w-8 h-8" /><p className="text-[8px] font-black uppercase tracking-widest">No requests yet</p></div>
         )}
       </div>
     </div>
@@ -175,14 +175,14 @@ export default function LandingPage() {
         {step === 'onboarding' && (
           <motion.div key="onboarding" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-950 overflow-y-auto">
             <div className="w-full max-w-xl space-y-12 text-center py-12">
-              <div className="space-y-4"><h2 className="text-5xl font-black italic tracking-tighter">INITIALIZE</h2><p className="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px]">Syncing digital identity...</p></div>
+              <div className="space-y-4"><h2 className="text-5xl font-black italic tracking-tighter">GET STARTED</h2><p className="text-slate-500 font-bold uppercase tracking-[0.3em] text-[10px]">Choose your name and avatar to begin...</p></div>
               <div className="space-y-8">
                 <div className="flex justify-center"><div className="w-32 h-32 md:w-40 md:h-40 rounded-[2.5rem] bg-slate-900 border-4 border-orange-500 overflow-hidden shadow-2xl"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedAvatar}`} className="w-full h-full" /></div></div>
-                <div className="max-w-sm mx-auto"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="ENTER CALLSIGN" className="w-full bg-slate-900 border-2 border-slate-800 focus:border-orange-500 p-5 rounded-2xl outline-none text-center font-black text-xl text-white" /></div>
+                <div className="max-w-sm mx-auto"><input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="ENTER YOUR NAME" className="w-full bg-slate-900 border-2 border-slate-800 focus:border-orange-500 p-5 rounded-2xl outline-none text-center font-black text-xl text-white" /></div>
                 <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">{AVATARS.slice(0, 16).map((av) => (<button key={av} onClick={() => setSelectedAvatar(av)} className={clsx("aspect-square rounded-xl border-2 transition-all", selectedAvatar === av ? "border-orange-500 bg-orange-500/10 scale-110" : "border-slate-800 grayscale opacity-40 hover:opacity-100")}><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${av}`} /></button>))}</div>
               </div>
               {nameError && <div className="text-red-500 font-bold uppercase text-[10px]">{nameError}</div>}
-              <button onClick={handleFinishOnboarding} disabled={!name || isRegistering} className="btn-primary w-full max-w-xs py-5">ENTER SYSTEM</button>
+              <button onClick={handleFinishOnboarding} disabled={!name || isRegistering} className="btn-primary w-full max-w-xs py-5">LET'S GO</button>
             </div>
           </motion.div>
         )}
@@ -197,7 +197,7 @@ export default function LandingPage() {
                     <h1 className="text-lg sm:text-2xl font-black italic tracking-tighter text-white">FUMIK <span className="text-orange-500">OS</span></h1>
                     <div className="flex items-center gap-1.5 text-[7px] sm:text-[9px] font-black text-slate-500 uppercase tracking-widest">
                       <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                      {totalConnections} Active Pulses
+                      {totalConnections} Players Online
                     </div>
                   </div>
                 </div>
@@ -213,12 +213,12 @@ export default function LandingPage() {
                     <button onClick={createNewRoom} className="group relative p-6 sm:p-8 rounded-[2rem] bg-orange-600 text-left overflow-hidden shadow-2xl transition-transform active:scale-95">
                        <div className="relative z-10 space-y-4">
                           <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center"><Icons.Plus className="w-6 h-6 text-white" /></div>
-                          <div><div className="text-xl sm:text-2xl font-black text-white italic">HOST WAR</div><div className="text-orange-100/60 text-[8px] sm:text-[10px] font-black uppercase tracking-widest">New Brain War Sector</div></div>
+                           <div><div className="text-xl sm:text-2xl font-black text-white italic">CREATE ROOM</div><div className="text-orange-100/60 text-[8px] sm:text-[10px] font-black uppercase tracking-widest">Start a new game</div></div>
                        </div>
                        <Icons.ChevronRight className="absolute bottom-6 sm:bottom-8 right-6 sm:right-8 w-6 h-6 text-white/20 group-hover:translate-x-1 transition-transform" />
                     </button>
                     <div className="p-6 sm:p-8 rounded-[2rem] bg-slate-900 border border-slate-800 flex flex-col justify-between gap-4">
-                      <div className="flex items-center gap-3"><Icons.Terminal className="w-5 h-5 text-orange-500" /><div className="text-sm sm:text-base font-black text-white italic uppercase leading-none">Interlink</div></div>
+                       <div className="flex items-center gap-3"><Icons.Terminal className="w-5 h-5 text-orange-500" /><div className="text-sm sm:text-base font-black text-white italic uppercase leading-none">Join a Room</div></div>
                       <div className="flex items-center gap-2">
                          <input type="text" maxLength={5} value={roomCode} onChange={(e) => setRoomCode(e.target.value.toUpperCase())} placeholder="CODE" className="flex-1 bg-slate-950 border border-slate-800 p-3 sm:p-4 rounded-xl outline-none font-black text-center tracking-[4px] focus:border-orange-500 text-white text-xs sm:text-sm min-w-0" />
                          <button onClick={joinExistingRoom} disabled={roomCode.length !== 5} className="p-3 sm:p-4 bg-orange-500 text-white rounded-xl font-black text-[10px] sm:text-xs uppercase shadow-lg shadow-orange-500/20 disabled:opacity-20 shrink-0">GO</button>
@@ -233,8 +233,8 @@ export default function LandingPage() {
                         <div className="text-right"><div className="text-lg sm:text-3xl font-black italic text-white uppercase tracking-tighter leading-none">BRAIN WAR</div><div className="text-orange-500/60 text-[7px] sm:text-[10px] font-black uppercase tracking-[0.4em] mt-1 sm:mt-2">100% AI GENERATED</div></div>
                      </div>
                      <div className="flex items-end justify-between relative z-10 gap-4 mt-6">
-                        <div className="space-y-1"><div className="text-white font-black italic text-sm sm:text-2xl uppercase leading-none">Neural Link Established</div><div className="text-slate-600 text-[6px] sm:text-[8px] font-black uppercase tracking-[0.4em]">Status: Ready for deployment</div></div>
-                        <button onClick={createNewRoom} className="bg-white text-black px-4 py-2 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[8px] sm:text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shrink-0 shadow-xl">Engage</button>
+                         <div className="space-y-1"><div className="text-white font-black italic text-sm sm:text-2xl uppercase leading-none">Play Brain War</div><div className="text-slate-600 text-[6px] sm:text-[8px] font-black uppercase tracking-[0.4em]">Status: Ready to play</div></div>
+                         <button onClick={createNewRoom} className="bg-white text-black px-4 py-2 sm:px-8 sm:py-4 rounded-xl sm:rounded-2xl font-black text-[8px] sm:text-xs uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all shrink-0 shadow-xl">Play Now</button>
                      </div>
                   </div>
                 </div>

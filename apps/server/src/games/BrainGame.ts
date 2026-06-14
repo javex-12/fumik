@@ -7,17 +7,23 @@ export class BrainGame extends BaseGame {
     super('brain');
   }
 
+  // Total time per round in ms — must match the client timer
+  private readonly ROUND_DURATION_MS = 10000;
+
   start(io: Server, room: Room) {
     // Strictly require AI questions pre-fetched during readying phase
     const questions = room.gameState?.aiQuestions;
     
     if (!questions || questions.length === 0) {
-      io.to(room.code).emit('system:narrator', { message: "Critical Error: Brain War dataset not found. Aborting." });
+      io.to(room.code).emit('system:narrator', { message: "No questions found. Please try starting the game again." });
       room.gameStatus = 'lobby';
       room.currentGame = null;
       io.to(room.code).emit('room:update', room);
       return;
     }
+
+    // Reset all player scores at the start of each new Brain War
+    room.players.forEach(p => { p.score = 0; });
 
     room.gameState = {
       ...room.gameState,
@@ -64,12 +70,17 @@ export class BrainGame extends BaseGame {
     const player = room.players.find(p => p.id === socket.id);
     if (!player || !player.isConnected) return;
 
+    // Only record the FIRST answer submitted — no changing after the fact
+    if (room.gameState.playerAnswers[player.userId] !== undefined) return;
+
     const now = Date.now();
     const timeTaken = now - room.gameState.questionStartTime;
 
     room.gameState.playerAnswers[player.userId] = { answerIndex, timeTaken };
 
-    io.to(room.code).emit('brain:liveAnswers', { playerAnswers: room.gameState.playerAnswers });
+    // Do NOT broadcast live answers so other players can't see what was chosen
+    // Only emit a personal ack to the answering player
+    socket.emit('brain:answerAck', { submitted: true });
   }
 
   private endRound(io: Server, room: Room) {
@@ -78,6 +89,7 @@ export class BrainGame extends BaseGame {
     if (room.gameState.timer) clearTimeout(room.gameState.timer);
 
     const correctIndex = room.gameState.currentQuestion.correctIndex;
+    const ROUND_DURATION_MS = this.ROUND_DURATION_MS;
     
     room.players.forEach(player => {
       const ans = room.gameState.playerAnswers[player.userId];
@@ -85,11 +97,15 @@ export class BrainGame extends BaseGame {
         const isCorrect = ans.answerIndex === correctIndex;
         ans.isCorrect = isCorrect;
         if (isCorrect) {
-          const points = Math.max(10, Math.floor(100 - (ans.timeTaken / 100)));
+          // Speed bonus: full 100pts if answered instantly, 50pts at the last moment
+          // This is a PERCENTAGE of time remaining, not raw ms — fair for everyone
+          const timeRemainingFraction = Math.max(0, 1 - (ans.timeTaken / ROUND_DURATION_MS));
+          const points = Math.round(50 + 50 * timeRemainingFraction); // 50 to 100 pts
           player.score += points;
-        } else {
-          player.score -= 20;
         }
+        // No penalty for wrong answers — just no points (makes it less demoralizing)
+      } else {
+        // Player didn't answer at all — no change to score
       }
     });
 
@@ -98,6 +114,8 @@ export class BrainGame extends BaseGame {
       playerAnswers: room.gameState.playerAnswers,
       scores: room.players.map(p => ({ id: p.id, userId: p.userId, score: p.score })),
     });
+
+    this.broadcastUpdate(io, room.code, room);
 
     room.gameState.round++;
 

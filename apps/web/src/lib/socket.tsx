@@ -132,12 +132,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketInstance.on('social:search-results', (results) => setSearchResults(results));
     
     socketInstance.on('social:friend-request', ({ fromUserId, fromName }) => {
-      addNotification(`Incoming link request from ${fromName}`, 'friend-request', { fromUserId });
+      addNotification(`Friend request from ${fromName}`, 'friend-request', { fromUserId });
       syncSocialData(socketInstance);
     });
 
     socketInstance.on('social:invite', ({ fromName, roomCode: rc }) => {
-      addNotification(`${fromName.toUpperCase()} INVITED YOU`, 'invite', { fromName, roomCode: rc });
+      addNotification(`${fromName.toUpperCase()} INVITED YOU TO PLAY`, 'invite', { fromName, roomCode: rc });
     });
 
     socketInstance.on('room:created', (newRoom: Room) => {
@@ -188,7 +188,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const myId = localStorage.getItem('fumik_social_id');
     if (myId && socket) {
       socket.emit('social:friend-request', { fromUserId: myId, toUserId });
-      addNotification("Signal transmitted.", "success");
+      addNotification("Friend request sent.", "success");
     }
   };
   const acceptFriendRequest = (fromUserId: string) => {
@@ -197,7 +197,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   };
   const declineFriendRequest = (fromUserId: string) => {
     setFriendRequests(prev => prev.filter(r => r.userId !== fromUserId));
-    addNotification("Signal rejected.", "info");
+    addNotification("Request declined.", "info");
   };
   const leaveRoom = (code: string) => socket?.emit('room:leave', { code });
   const abortGame = (code: string) => socket?.emit('game:abort', { code });

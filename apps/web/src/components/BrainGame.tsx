@@ -55,7 +55,10 @@ export default function BrainGame() {
   const [currentQuestion, setCurrentQuestion] = useState<any>(null);
   const [round, setRound] = useState(1);
   const [total, setTotal] = useState(10);
+  // selectedAnswer: the answer index the LOCAL player chose (null = not answered yet)
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
+  // answerLocked: true once the server has acknowledged our pick — no re-selecting
+  const [answerLocked, setAnswerLocked] = useState(false);
   const [correctIndex, setCorrectIndex] = useState<number | null>(null);
   const [playerAnswers, setPlayerAnswers] = useState<any>({}); // userId -> { answerIndex, isCorrect, timeTaken }
   const [timeLeft, setTimeLeft] = useState(10);
@@ -75,16 +78,18 @@ export default function BrainGame() {
       setRound(round);
       setTotal(total);
       setSelectedAnswer(null);
+      setAnswerLocked(false);
       setCorrectIndex(null);
       setPlayerAnswers({});
       setTimeLeft(10);
     });
 
-    socket.on('brain:liveAnswers', ({ playerAnswers }) => {
-      setPlayerAnswers(playerAnswers);
+    // Server ack: our answer was recorded — lock it in
+    socket.on('brain:answerAck', () => {
+      setAnswerLocked(true);
     });
 
-    socket.on('brain:reveal', ({ correctIndex, playerAnswers, scores }) => {
+    socket.on('brain:reveal', ({ correctIndex, playerAnswers }) => {
       setStatus('reveal');
       setCorrectIndex(correctIndex);
       setPlayerAnswers(playerAnswers);
@@ -98,7 +103,7 @@ export default function BrainGame() {
     return () => {
       socket.off('brain:starting');
       socket.off('brain:question');
-      socket.off('brain:liveAnswers');
+      socket.off('brain:answerAck');
       socket.off('brain:reveal');
       socket.off('brain:gameover');
     };
@@ -112,7 +117,8 @@ export default function BrainGame() {
   }, [status, timeLeft]);
 
   const handleAnswer = (index: number) => {
-    if (status !== 'playing') return;
+    // Block if: not in playing phase, already locked, or already selected
+    if (status !== 'playing' || answerLocked || selectedAnswer !== null) return;
     setSelectedAnswer(index);
     socket?.emit('game:input', { code: room?.code, data: { questionId: currentQuestion.id, answerIndex: index } });
   };
@@ -130,7 +136,7 @@ export default function BrainGame() {
             <span className="text-4xl">🧠</span>
           </div>
           <h2 className="text-8xl font-black italic text-orange-500 tracking-tighter animate-pulse">{countdown}</h2>
-          <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-xs">Generating Neural Pathways...</p>
+          <p className="text-slate-500 font-black uppercase tracking-[0.4em] text-xs">Get ready! Questions loading...</p>
         </motion.div>
       </div>
     );
@@ -151,7 +157,7 @@ export default function BrainGame() {
             className="bg-slate-900/60 backdrop-blur-2xl p-8 sm:p-12 max-w-2xl w-full border border-slate-800 rounded-[3rem] shadow-2xl z-10 space-y-8 my-12"
         >
             <div className="space-y-2">
-              <div className="px-3 py-1 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-full text-[10px] font-black uppercase tracking-widest inline-block mx-auto">Simulation Finished</div>
+              <div className="px-3 py-1 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-full text-[10px] font-black uppercase tracking-widest inline-block mx-auto">Game Over</div>
               <h2 className="text-4xl sm:text-5xl font-black text-white italic uppercase tracking-tighter">BRAIN WAR OVER</h2>
             </div>
             
@@ -167,18 +173,20 @@ export default function BrainGame() {
                           <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${w.avatar || 'default'}`} className="w-full h-full object-cover" />
                         </div>
                         <div className="text-lg font-black text-white uppercase mt-2">{w.name}</div>
-                        <div className="text-[10px] font-black text-yellow-500 tracking-widest mt-0.5">{w.score} SCORE</div>
+                        <div className="text-[10px] font-black text-yellow-500 tracking-widest mt-0.5">{w.score} POINTS</div>
                       </div>
                     ))}
                   </div>
                   <div className="text-center mt-2">
-                    <span className="text-[10px] font-black uppercase text-orange-400 tracking-wider">Victors of this Sector</span>
+                    <span className="text-[10px] font-black uppercase text-orange-400 tracking-wider">
+                      {winners.length === 1 ? '🏆 Champion!' : '🤝 It\'s a tie!'}
+                    </span>
                   </div>
                 </div>
               )}
 
               <div className="space-y-3 text-left">
-                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-2">Crew Leaderboard</div>
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-2">Final Scores</div>
                 <div className="space-y-2">
                   {sortedPlayers.map((p, idx) => (
                     <div key={p.userId} className={clsx("p-4 rounded-xl border flex items-center justify-between", idx === 0 ? "bg-slate-900 border-yellow-500/30" : "bg-slate-950/80 border-slate-800")}>
@@ -189,7 +197,7 @@ export default function BrainGame() {
                         </div>
                         <div className="text-xs font-black text-white uppercase tracking-tight">{p.name}</div>
                       </div>
-                      <div className="text-xs font-black text-orange-500">{p.score} <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider ml-1">INT</span></div>
+                      <div className="text-xs font-black text-orange-500">{p.score} <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider ml-1">pts</span></div>
                     </div>
                   ))}
                 </div>
@@ -197,7 +205,7 @@ export default function BrainGame() {
             </div>
 
             <div className="h-1 w-24 bg-slate-800 mx-auto rounded-full" />
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Redirecting to Sector Control Room in 10s...</p>
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Returning to the lobby in 10 seconds...</p>
         </motion.div>
       </div>
     );
@@ -208,19 +216,19 @@ export default function BrainGame() {
       <div className="max-w-4xl w-full space-y-6 md:space-y-12">
         <header className="flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-900/40 backdrop-blur-xl p-6 sm:p-8 rounded-3xl sm:rounded-[2.5rem] border border-slate-800 shadow-2xl">
           <div className="space-y-1 text-center sm:text-left">
-             <div className="text-orange-500 font-black uppercase tracking-[0.4em] text-[10px]">Neural Protocol</div>
+             <div className="text-orange-500 font-black uppercase tracking-[0.4em] text-[10px]">Brain War</div>
              <div className="text-2xl sm:text-3xl font-black italic text-white uppercase tracking-tight">{currentQuestion?.category || 'MIXED TRIVIA'}</div>
           </div>
           <div className="flex items-center gap-4 md:gap-6">
              <div className="text-right">
-                <div className="text-slate-500 font-black uppercase tracking-widest text-[8px]">Time</div>
+                <div className="text-slate-500 font-black uppercase tracking-widest text-[8px]">Time Left</div>
                 <div className={clsx("text-3xl md:text-4xl font-mono font-bold tracking-tighter transition-colors", timeLeft < 3 ? "text-red-500 animate-pulse" : "text-white")}>
                   {Math.ceil(timeLeft)}s
                 </div>
              </div>
              <div className="h-10 md:h-12 w-px bg-slate-800" />
              <div className="text-left">
-                <div className="text-slate-500 font-black uppercase tracking-widest text-[8px]">Phase</div>
+                <div className="text-slate-500 font-black uppercase tracking-widest text-[8px]">Question</div>
                 <div className="text-2xl md:text-3xl font-black italic text-white">{round}<span className="text-slate-700 mx-1">/</span>{total}</div>
              </div>
           </div>
@@ -244,19 +252,24 @@ export default function BrainGame() {
               else if (index === selectedAnswer) stateClass = "bg-red-600 border-red-500 text-white opacity-40 grayscale";
               else stateClass = "bg-slate-950 border-slate-900 text-slate-700 opacity-20";
             } else if (selectedAnswer === index) {
-              stateClass = "bg-orange-600 border-orange-500 text-white shadow-xl scale-95";
+              // Answer chosen but not yet revealed — show as locked-in (orange)
+              stateClass = "bg-orange-600 border-orange-500 text-white shadow-xl scale-95 cursor-not-allowed";
+            } else if (answerLocked || selectedAnswer !== null) {
+              // Other options after answer locked — dim them
+              stateClass = "bg-slate-950 border-slate-900 text-slate-700 opacity-30 cursor-not-allowed";
             }
 
             return (
               <button
                 key={index}
                 onClick={() => handleAnswer(index)}
-                disabled={status !== 'playing'}
+                // Disabled once answer locked OR in reveal phase
+                disabled={status !== 'playing' || answerLocked || selectedAnswer !== null}
                 className={clsx("relative p-8 rounded-[2rem] border-2 text-xl font-black italic text-center transition-all duration-300 group overflow-hidden uppercase tracking-tight", stateClass)}
               >
                 <div className="relative z-10">{option}</div>
                 
-                {/* Players who chose this — ONLY show during reveal phase */}
+                {/* Show who picked this answer — ONLY during reveal phase */}
                 {status === 'reveal' && (
                   <div className="absolute bottom-4 right-4 flex -space-x-3 overflow-hidden p-1">
                     {Object.entries(playerAnswers).map(([uid, ans]: [string, any]) => {
@@ -267,6 +280,13 @@ export default function BrainGame() {
                         </div>
                       );
                     })}
+                  </div>
+                )}
+
+                {/* Personal confirmation badge */}
+                {status === 'playing' && selectedAnswer === index && (
+                  <div className="absolute top-3 right-3 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center">
+                    <Icons.Check className="w-3.5 h-3.5 text-white" />
                   </div>
                 )}
               </button>
