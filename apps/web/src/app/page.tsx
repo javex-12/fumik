@@ -34,6 +34,7 @@ export default function LandingPage() {
   const storedSocialId = typeof window !== 'undefined' ? localStorage.getItem('fumik_social_id') : null;
   const myIds = [socialUserId, userId, storedSocialId].filter(Boolean);
   const otherUsers = onlineUsers.filter(u => !myIds.includes(u.userId));
+  const otherFriends = friends.filter(f => !myIds.includes(f.userId));
 
   const [step, setStep] = useState<'splash' | 'onboarding' | 'dashboard'>('splash');
   const [isMounted, setIsMounted] = useState(false);
@@ -141,7 +142,7 @@ export default function LandingPage() {
             </div>
           )) : <div className="flex flex-col items-center justify-center h-full text-center space-y-3 opacity-20"><Icons.Cpu className="w-8 h-8" /><p className="text-[8px] font-black uppercase tracking-widest">Scanning sectors...</p></div>
         ) : socialTab === 'friends' ? (
-          friends.length > 0 ? friends.map(f => (
+          otherFriends.length > 0 ? otherFriends.map(f => (
             <div key={f.userId} className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-800 relative"><img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${f.avatar}`} />{f.isOnline && <div className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 rounded-full border border-slate-950" />}</div>

@@ -4,6 +4,49 @@ import { useState, useEffect } from "react";
 import { useSocket } from "@/lib/socket";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
+import * as Icons from "lucide-react";
+
+const Confetti = () => {
+  const particles = Array.from({ length: 80 }).map((_, i) => ({
+    id: i,
+    x: Math.random() * 100,
+    y: -20 - Math.random() * 50,
+    size: 4 + Math.random() * 8,
+    color: ['#f97316', '#3b82f6', '#22c55e', '#eab308', '#ec4899'][Math.floor(Math.random() * 5)],
+    delay: Math.random() * 5,
+    duration: 3 + Math.random() * 4
+  }));
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden z-20">
+      {particles.map(p => (
+        <motion.div
+          key={p.id}
+          initial={{ x: `${p.x}vw`, y: `${p.y}vh`, rotate: 0 }}
+          animate={{ 
+            y: '110vh', 
+            x: [`${p.x}vw`, `${p.x + (Math.random() * 20 - 10)}vw`],
+            rotate: 360 * (Math.random() > 0.5 ? 1 : -1)
+          }}
+          transition={{
+            duration: p.duration,
+            delay: p.delay,
+            repeat: Infinity,
+            ease: "linear"
+          }}
+          style={{
+            position: 'absolute',
+            width: p.size,
+            height: p.size,
+            backgroundColor: p.color,
+            borderRadius: Math.random() > 0.5 ? '50%' : '0%',
+            opacity: 0.8
+          }}
+        />
+      ))}
+    </div>
+  );
+};
 
 export default function BrainGame() {
   const { room, socket, userId } = useSocket();
@@ -16,6 +59,7 @@ export default function BrainGame() {
   const [correctIndex, setCorrectIndex] = useState<number | null>(null);
   const [playerAnswers, setPlayerAnswers] = useState<any>({}); // userId -> { answerIndex, isCorrect, timeTaken }
   const [timeLeft, setTimeLeft] = useState(10);
+  const [winners, setWinners] = useState<any[]>([]);
 
   useEffect(() => {
     if (!socket) return;
@@ -36,19 +80,25 @@ export default function BrainGame() {
       setTimeLeft(10);
     });
 
+    socket.on('brain:liveAnswers', ({ playerAnswers }) => {
+      setPlayerAnswers(playerAnswers);
+    });
+
     socket.on('brain:reveal', ({ correctIndex, playerAnswers, scores }) => {
       setStatus('reveal');
       setCorrectIndex(correctIndex);
       setPlayerAnswers(playerAnswers);
     });
 
-    socket.on('brain:gameover', ({ finalScores }) => {
+    socket.on('brain:gameover', ({ winner }) => {
       setStatus('gameover');
+      setWinners(Array.isArray(winner) ? winner : []);
     });
 
     return () => {
       socket.off('brain:starting');
       socket.off('brain:question');
+      socket.off('brain:liveAnswers');
       socket.off('brain:reveal');
       socket.off('brain:gameover');
     };
@@ -62,7 +112,7 @@ export default function BrainGame() {
   }, [status, timeLeft]);
 
   const handleAnswer = (index: number) => {
-    if (status !== 'playing' || selectedAnswer !== null) return;
+    if (status !== 'playing') return;
     setSelectedAnswer(index);
     socket?.emit('game:input', { code: room?.code, data: { questionId: currentQuestion.id, answerIndex: index } });
   };
@@ -87,16 +137,67 @@ export default function BrainGame() {
   }
 
   if (status === 'gameover') {
+    const sortedPlayers = room ? [...room.players].sort((a, b) => b.score - a.score) : [];
+
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-950 font-body p-12 text-center relative overflow-hidden">
+      <div className="h-full w-full flex flex-col items-center justify-center bg-slate-950 font-body p-6 text-center relative overflow-y-auto">
+        <Confetti />
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-orange-500/10 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px]" />
+        
         <motion.div
             initial={{ y: 50, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            className="bg-slate-900/40 backdrop-blur-2xl p-16 max-w-2xl w-full border border-slate-800 rounded-[3rem] shadow-2xl z-10 space-y-8"
+            className="bg-slate-900/60 backdrop-blur-2xl p-8 sm:p-12 max-w-2xl w-full border border-slate-800 rounded-[3rem] shadow-2xl z-10 space-y-8 my-12"
         >
-            <h2 className="text-5xl font-black text-white italic uppercase tracking-tighter">BRAIN WAR OVER</h2>
-            <div className="h-1 w-24 bg-orange-500 mx-auto rounded-full" />
-            <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Uploading collective intelligence...</p>
+            <div className="space-y-2">
+              <div className="px-3 py-1 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-full text-[10px] font-black uppercase tracking-widest inline-block mx-auto">Simulation Finished</div>
+              <h2 className="text-4xl sm:text-5xl font-black text-white italic uppercase tracking-tighter">BRAIN WAR OVER</h2>
+            </div>
+            
+            <div className="space-y-6">
+              {winners.length > 0 && (
+                <div className="flex flex-col items-center gap-4 bg-orange-500/10 border border-orange-500/20 p-6 rounded-2xl relative overflow-hidden">
+                  <div className="absolute -top-6 -right-6 w-24 h-24 bg-orange-500/10 rounded-full blur-xl" />
+                  <Icons.Crown className="w-12 h-12 text-yellow-500 animate-bounce" />
+                  <div className="flex items-center gap-4">
+                    {winners.map(w => (
+                      <div key={w.userId} className="flex flex-col items-center">
+                        <div className="w-16 h-16 rounded-2xl border-4 border-yellow-500 overflow-hidden shadow-2xl">
+                          <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${w.avatar || 'default'}`} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="text-lg font-black text-white uppercase mt-2">{w.name}</div>
+                        <div className="text-[10px] font-black text-yellow-500 tracking-widest mt-0.5">{w.score} SCORE</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="text-center mt-2">
+                    <span className="text-[10px] font-black uppercase text-orange-400 tracking-wider">Victors of this Sector</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3 text-left">
+                <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 px-2">Crew Leaderboard</div>
+                <div className="space-y-2">
+                  {sortedPlayers.map((p, idx) => (
+                    <div key={p.userId} className={clsx("p-4 rounded-xl border flex items-center justify-between", idx === 0 ? "bg-slate-900 border-yellow-500/30" : "bg-slate-950/80 border-slate-800")}>
+                      <div className="flex items-center gap-3">
+                        <div className="text-xs font-black font-mono text-slate-500 w-4">#{idx + 1}</div>
+                        <div className="w-8 h-8 rounded-lg overflow-hidden border border-slate-700">
+                          <img src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${p.avatar || 'default'}`} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="text-xs font-black text-white uppercase tracking-tight">{p.name}</div>
+                      </div>
+                      <div className="text-xs font-black text-orange-500">{p.score} <span className="text-[8px] text-slate-500 font-bold uppercase tracking-wider ml-1">INT</span></div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="h-1 w-24 bg-slate-800 mx-auto rounded-full" />
+            <p className="text-slate-400 font-bold uppercase tracking-widest text-[9px]">Redirecting to Sector Control Room in 10s...</p>
         </motion.div>
       </div>
     );
@@ -150,7 +251,7 @@ export default function BrainGame() {
               <button
                 key={index}
                 onClick={() => handleAnswer(index)}
-                disabled={status !== 'playing' || selectedAnswer !== null}
+                disabled={status !== 'playing'}
                 className={clsx("relative p-8 rounded-[2rem] border-2 text-xl font-black italic text-center transition-all duration-300 group overflow-hidden uppercase tracking-tight", stateClass)}
               >
                 <div className="relative z-10">{option}</div>

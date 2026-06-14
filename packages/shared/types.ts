@@ -9,6 +9,8 @@ export type Player = {
   score: number;
   isReady: boolean;
   isConnected: boolean;
+  niche?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
 }
 
 export type GameType = 

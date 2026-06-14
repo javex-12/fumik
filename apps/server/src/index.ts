@@ -265,13 +265,71 @@ io.on('connection', (socket) => {
     socket.emit('room:left');
   });
 
+  socket.on('player:preferences', ({ code, niche, difficulty }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (player) {
+      player.niche = niche;
+      player.difficulty = difficulty;
+      io.to(code).emit('room:update', room);
+    }
+  });
+
+  socket.on('chat:message', ({ code, message }) => {
+    const room = rooms.get(code);
+    if (!room) return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+    io.to(code).emit('chat:message', {
+      playerId: socket.id,
+      playerName: player.name,
+      message,
+      timestamp: new Date()
+    });
+  });
+
+  socket.on('call:signal', ({ to, signal }) => {
+    io.to(to).emit('call:signal', { from: socket.id, signal });
+  });
+
   socket.on('game:start', async ({ code }) => {
     const room = rooms.get(code);
     if (!room || room.players.find(p => p.id === socket.id)?.isHost === false) return;
     room.currentGame = 'brain'; room.gameStatus = 'readying'; room.players.forEach(p => p.isReady = false);
     io.to(code).emit('room:update', room);
-    io.to(code).emit('system:narrator', { message: "Generating fresh AI patterns..." });
-    const qs = await GroqService.generateQuestions("mixed trivia", 10);
+
+    // Aggregate player preferences (niches/categories and difficulties)
+    const activePlayers = room.players.filter(p => p.isConnected);
+    
+    const nicheCounts: Record<string, number> = {};
+    activePlayers.forEach(p => {
+      if (p.niche) nicheCounts[p.niche] = (nicheCounts[p.niche] || 0) + 1;
+    });
+    let selectedNiche = 'mixed trivia';
+    let maxNicheCount = 0;
+    Object.entries(nicheCounts).forEach(([niche, count]) => {
+      if (count > maxNicheCount) {
+        maxNicheCount = count;
+        selectedNiche = niche;
+      }
+    });
+
+    const diffCounts: Record<string, number> = {};
+    activePlayers.forEach(p => {
+      if (p.difficulty) diffCounts[p.difficulty] = (diffCounts[p.difficulty] || 0) + 1;
+    });
+    let selectedDifficulty = 'medium';
+    let maxDiffCount = 0;
+    Object.entries(diffCounts).forEach(([diff, count]) => {
+      if (count > maxDiffCount) {
+        maxDiffCount = count;
+        selectedDifficulty = diff;
+      }
+    });
+
+    io.to(code).emit('system:narrator', { message: `Synthesizing ${selectedNiche.toUpperCase()} patterns (${selectedDifficulty.toUpperCase()})...` });
+    const qs = await GroqService.generateQuestions(selectedNiche, 10, selectedDifficulty);
     if (qs) { room.gameState = { ...room.gameState, aiQuestions: qs }; io.to(code).emit('system:narrator', { message: "AI dataset injected." }); }
     else io.to(code).emit('system:narrator', { message: "AI link error." });
   });

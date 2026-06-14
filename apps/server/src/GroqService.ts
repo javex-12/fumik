@@ -84,10 +84,11 @@ const FALLBACK_QUESTIONS = [
 ];
 
 export class GroqService {
-  static async generateQuestions(category: string, count: number = 5, retryCount = 0): Promise<any[] | null> {
+  static async generateQuestions(category: string, count: number = 5, difficulty: string = "medium", retryCount = 0): Promise<any[] | null> {
     if (!GROQ_API_KEY) {
       console.warn("⚠️  GROQ_API_KEY missing. Using fallback questions.");
-      return FALLBACK_QUESTIONS.slice(0, count);
+      const shuffled = [...FALLBACK_QUESTIONS].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, count);
     }
 
     try {
@@ -104,7 +105,7 @@ export class GroqService {
             messages: [
               {
                 role: "system",
-                content: `You are FUMIK OS AI trivia engine. Generate ${count} fun, engaging trivia questions about ${category}. 
+                content: `You are FUMIK OS AI trivia engine. Generate ${count} fun, engaging trivia questions about ${category} at ${difficulty} difficulty level. 
                 Ensure extreme variety. Seed: ${Date.now()}_${Math.random()}.
                 Return ONLY a JSON object with a 'questions' array.
                 Structure: id (unique), category, question, options (4 strings), correctIndex (0-3), difficulty.`
@@ -115,24 +116,26 @@ export class GroqService {
               }
             ],
             response_format: { type: "json_object" },
-            temperature: 0.8
+            temperature: 0.95
           })
         }
       );
 
       if (!response.ok) {
-        if (retryCount < 1) return this.generateQuestions(category, count, retryCount + 1);
+        if (retryCount < 1) return this.generateQuestions(category, count, difficulty, retryCount + 1);
         console.warn("⚠️  Groq API response not OK. Using fallback questions.");
-        return FALLBACK_QUESTIONS.slice(0, count);
+        const shuffled = [...FALLBACK_QUESTIONS].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, count);
       }
 
       const data: any = await response.json();
       const content = JSON.parse(data.choices[0].message.content);
       return content.questions || content;
     } catch (error) {
-      if (retryCount < 1) return this.generateQuestions(category, count, retryCount + 1);
+      if (retryCount < 1) return this.generateQuestions(category, count, difficulty, retryCount + 1);
       console.error("❌ Groq Error:", error);
-      return FALLBACK_QUESTIONS.slice(0, count);
+      const shuffled = [...FALLBACK_QUESTIONS].sort(() => Math.random() - 0.5);
+      return shuffled.slice(0, count);
     }
   }
 }
